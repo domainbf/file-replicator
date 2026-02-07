@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import { Camera, Share2, Copy, Check, X as XIcon, MessageCircle, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,9 +24,26 @@ const ShareDialog = ({ data, pricing }: ShareDialogProps) => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { t, language } = useLanguage();
+
+  // Detect dark mode
+  useEffect(() => {
+    const checkDarkMode = () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      setIsDarkMode(isDark);
+    };
+    
+    checkDarkMode();
+    
+    // Watch for theme changes
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    
+    return () => observer.disconnect();
+  }, []);
 
   const generateImage = useCallback(async () => {
     if (!cardRef.current) return null;
@@ -35,7 +52,7 @@ const ShareDialog = ({ data, pricing }: ShareDialogProps) => {
     try {
       const canvas = await html2canvas(cardRef.current, {
         scale: 2,
-        backgroundColor: '#ffffff',
+        backgroundColor: isDarkMode ? '#171717' : '#ffffff',
         useCORS: true,
         logging: false,
       });
@@ -52,9 +69,10 @@ const ShareDialog = ({ data, pricing }: ShareDialogProps) => {
     } finally {
       setGenerating(false);
     }
-  }, [toast, language]);
+  }, [toast, language, isDarkMode]);
 
   const handleScreenshot = async () => {
+    setImageUrl(null); // Reset to regenerate with current theme
     setScreenshotOpen(true);
     // Small delay to ensure dialog is rendered
     setTimeout(async () => {
@@ -63,6 +81,7 @@ const ShareDialog = ({ data, pricing }: ShareDialogProps) => {
   };
 
   const handleShare = async () => {
+    setImageUrl(null); // Reset to regenerate with current theme
     setShareOpen(true);
     setTimeout(async () => {
       await generateImage();
@@ -149,7 +168,7 @@ const ShareDialog = ({ data, pricing }: ShareDialogProps) => {
 
       {/* Hidden card for rendering */}
       <div className="fixed -left-[9999px] top-0 z-[-1]">
-        <ShareCard ref={cardRef} data={data} pricing={pricing} />
+        <ShareCard ref={cardRef} data={data} pricing={pricing} isDark={isDarkMode} />
       </div>
 
       {/* Screenshot Dialog */}
