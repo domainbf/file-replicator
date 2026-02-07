@@ -113,12 +113,17 @@ const translations: Record<Language, Record<string, string>> = {
     'auth.registerSuccess': '注册成功，请检查邮箱完成验证',
     
     // Footer
-    'footer.copyright': '© 2026 RDAP Domain Lookup. All rights reserved.',
+    'footer.copyright': '© 2026 RDAP Domain Lookup',
+    'footer.about': '关于我',
+    'footer.register': '域名注册',
+    'footer.shortlink': '短链接',
+    'footer.updates': '我的动态',
     
     // Misc
     'misc.copySuccess': '已复制到剪贴板',
     'misc.copyFailed': '复制失败',
     'misc.noData': '暂无数据',
+    'misc.unknown': '未知',
   },
   en: {
     // Header
@@ -224,12 +229,17 @@ const translations: Record<Language, Record<string, string>> = {
     'auth.registerSuccess': 'Registration successful, please verify your email',
     
     // Footer
-    'footer.copyright': '© 2026 RDAP Domain Lookup. All rights reserved.',
+    'footer.copyright': '© 2026 RDAP Domain Lookup',
+    'footer.about': 'About Me',
+    'footer.register': 'Register Domain',
+    'footer.shortlink': 'Short Link',
+    'footer.updates': 'Updates',
     
     // Misc
     'misc.copySuccess': 'Copied to clipboard',
     'misc.copyFailed': 'Copy failed',
     'misc.noData': 'No data available',
+    'misc.unknown': 'Unknown',
   },
 };
 

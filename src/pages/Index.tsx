@@ -143,9 +143,26 @@ const Index = ({ initialDomain: propDomain }: IndexProps) => {
       {/* Footer */}
       <footer className="mt-auto border-t bg-background">
         <div className="container max-w-6xl mx-auto px-4 py-4">
-          <p className="text-xs text-muted-foreground text-center">
-            {t('footer.copyright')}
-          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 text-xs text-muted-foreground">
+            <p>{t('footer.copyright')}</p>
+            <div className="flex items-center gap-3">
+              <a href="https://hello.sn" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
+                {t('footer.about')}
+              </a>
+              <span className="hidden sm:inline">·</span>
+              <a href="https://0451.me" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
+                {t('footer.register')}
+              </a>
+              <span className="hidden sm:inline">·</span>
+              <a href="https://l.ke" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
+                {t('footer.shortlink')}
+              </a>
+              <span className="hidden sm:inline">·</span>
+              <a href="https://f.af" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
+                {t('footer.updates')}
+              </a>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
