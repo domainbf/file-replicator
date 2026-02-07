@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { History, Trash2, Search, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
+import { zhCN, enUS } from 'date-fns/locale';
 
 interface HistoryItem {
   id: string;
@@ -23,6 +24,7 @@ interface QueryHistoryProps {
 
 const QueryHistory = ({ onSelectDomain }: QueryHistoryProps) => {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -57,18 +59,20 @@ const QueryHistory = ({ onSelectDomain }: QueryHistoryProps) => {
     }
   };
 
+  const getLocale = () => language === 'zh' ? zhCN : enUS;
+
   if (!user) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-medium">
             <History className="h-4 w-4" />
-            查询历史
+            {t('history.title')}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-4">
-            登录后可查看查询历史
+          <p className="text-xs text-muted-foreground text-center py-3">
+            {t('history.loginRequired')}
           </p>
         </CardContent>
       </Card>
@@ -77,24 +81,24 @@ const QueryHistory = ({ onSelectDomain }: QueryHistoryProps) => {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-sm font-medium">
           <History className="h-4 w-4" />
-          查询历史
+          {t('history.title')}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="flex justify-center py-4">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <div className="flex justify-center py-3">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           </div>
         ) : history.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            暂无查询历史
+          <p className="text-xs text-muted-foreground text-center py-3">
+            {t('history.empty')}
           </p>
         ) : (
-          <ScrollArea className="h-[300px]">
-            <div className="space-y-2">
+          <ScrollArea className="h-[250px]">
+            <div className="space-y-1.5">
               {history.map((item) => (
                 <div
                   key={item.id}
@@ -105,26 +109,26 @@ const QueryHistory = ({ onSelectDomain }: QueryHistoryProps) => {
                     <p className="text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(item.created_at), { 
                         addSuffix: true, 
-                        locale: zhCN 
+                        locale: getLocale()
                       })}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1 ml-2">
+                  <div className="flex items-center gap-0.5 ml-2">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-7 w-7"
                       onClick={() => onSelectDomain(item.domain_name)}
                     >
-                      <Search className="h-4 w-4" />
+                      <Search className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
                       onClick={() => handleDelete(item.id)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>

@@ -3,6 +3,7 @@ import { AlertCircle, Loader2, Star, CheckCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/hooks/useLanguage';
 import DomainSearch from './DomainSearch';
 import DomainResultCard, { WhoisData, PricingData } from './DomainResultCard';
 import { Button } from '@/components/ui/button';
@@ -25,17 +26,15 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useLanguage();
 
-  // Trigger lookup when initialDomain changes or on mount with initialDomain
   useEffect(() => {
     if (initialDomain) {
       setDomain(initialDomain);
-      // Always trigger lookup when we have an initial domain
       handleLookupWithDomain(initialDomain);
     }
   }, [initialDomain]);
   
-  // Also trigger on component mount if we have an initialDomain
   useEffect(() => {
     if (initialDomain && !result && !loading && !error) {
       handleLookupWithDomain(initialDomain);
@@ -80,12 +79,12 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
     setIsAvailable(false);
 
     if (!domainToLookup.trim()) {
-      setError('请输入要查询的域名');
+      setError(t('error.enterDomain'));
       return;
     }
 
     if (!validateDomain(domainToLookup.trim())) {
-      setError('域名格式无效，请输入正确的域名格式（如 example.com）');
+      setError(t('error.invalidFormat'));
       return;
     }
 
@@ -98,7 +97,7 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
 
       if (fnError) {
         console.error('Edge function error:', fnError);
-        setError('查询服务暂时不可用，请稍后重试');
+        setError(t('error.serviceUnavailable'));
         return;
       }
 
@@ -123,7 +122,6 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
           registrant: data.primary.registrant,
           dnssec: data.primary.dnssec || false,
           source: data.primary.source === 'rdap' ? 'rdap' : 'whois',
-          // Enhanced fields
           registrarWebsite: data.primary.registrarWebsite,
           registrarIanaId: data.primary.registrarIanaId,
           dnsProvider: data.primary.dnsProvider,
@@ -142,17 +140,16 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
           setPricing(data.pricing);
         }
         
-        // Notify parent of successful query
         onDomainQueried?.(domainToLookup.trim().toLowerCase());
         
         await saveToHistory(domainToLookup.trim(), whoisData);
         await checkIsFavorite(domainToLookup.trim());
       } else {
-        setError('未找到该域名的信息');
+        setError(t('error.notFound'));
       }
     } catch (err) {
       console.error('Lookup error:', err);
-      setError('查询失败，请稍后重试');
+      setError(t('error.queryFailed'));
     } finally {
       setLoading(false);
     }
@@ -164,7 +161,7 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
 
   const toggleFavorite = async () => {
     if (!user || !result) {
-      toast({ description: '请先登录', variant: 'destructive' });
+      toast({ description: t('error.loginRequired'), variant: 'destructive' });
       return;
     }
 
@@ -179,7 +176,7 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
           .eq('domain_name', result.domain.toLowerCase());
         
         setIsFavorite(false);
-        toast({ description: '已从收藏中移除' });
+        toast({ description: t('favorites.remove') });
       } else {
         await supabase.from('favorites').insert({
           user_id: user.id,
@@ -189,19 +186,19 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
         });
         
         setIsFavorite(true);
-        toast({ description: '已添加到收藏' });
+        toast({ description: t('favorites.addSuccess') });
         onFavoriteAdded?.();
       }
     } catch (err) {
       console.error('Favorite error:', err);
-      toast({ description: '操作失败', variant: 'destructive' });
+      toast({ description: t('error.operationFailed'), variant: 'destructive' });
     } finally {
       setFavoriteLoading(false);
     }
   };
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-4">
       <DomainSearch
         domain={domain}
         setDomain={setDomain}
@@ -210,23 +207,23 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
       />
 
       {error && (
-        <div className={`flex items-start gap-3 p-4 border rounded-lg ${
+        <div className={`flex items-start gap-3 p-3 border rounded-lg ${
           isAvailable 
             ? 'border-success/20 bg-success/5' 
             : 'border-destructive/20 bg-destructive/5'
         }`}>
           {isAvailable ? (
-            <CheckCircle className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
+            <CheckCircle className="h-4 w-4 text-success flex-shrink-0 mt-0.5" />
           ) : (
-            <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+            <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
           )}
           <div>
             <p className={`text-sm ${isAvailable ? 'text-success' : 'text-destructive'}`}>
               {error}
             </p>
             {isAvailable && (
-              <Badge variant="outline" className="mt-2 text-success border-success">
-                可注册
+              <Badge variant="outline" className="mt-1.5 text-success border-success text-xs">
+                {t('pricing.available')}
               </Badge>
             )}
           </div>
@@ -234,13 +231,13 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
       )}
 
       {loading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       )}
 
       {result && !loading && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {user && (
             <div className="flex justify-end">
               <Button
@@ -248,10 +245,10 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
                 size="sm"
                 onClick={toggleFavorite}
                 disabled={favoriteLoading}
-                className="gap-2"
+                className="gap-1.5 h-8 text-xs"
               >
-                <Star className={`h-4 w-4 ${isFavorite ? 'fill-current' : ''}`} />
-                {isFavorite ? '已收藏' : '收藏'}
+                <Star className={`h-3.5 w-3.5 ${isFavorite ? 'fill-current' : ''}`} />
+                {isFavorite ? t('favorites.added') : t('favorites.add')}
               </Button>
             </div>
           )}
