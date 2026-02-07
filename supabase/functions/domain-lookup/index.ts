@@ -389,6 +389,85 @@ const REGISTRAR_WEBSITES: Record<string, string> = {
   'domains.co.za': 'https://www.domains.co.za',
   'cyberia': 'https://www.cyberia.net.sa',
   'sahara': 'https://www.sahara.ae',
+  // ==================== 格鲁吉亚/高加索地区注册商 ====================
+  'worldbus': 'https://www.worldbus.ge',
+  'nic.ge': 'https://nic.ge',
+  'grena': 'https://www.grena.ge',
+  'caucasus online': 'https://www.co.ge',
+  'silknet': 'https://www.silknet.com',
+  'magticom': 'https://www.magticom.ge',
+  // ==================== 中亚/前苏联地区注册商 ====================
+  'nic.kz': 'https://nic.kz',
+  'ps.kz': 'https://ps.kz',
+  'hoster.kz': 'https://hoster.kz',
+  'salesdomain': 'https://www.salesdomain.kz',
+  'hostmaster.ua': 'https://hostmaster.ua',
+  'nic.ua': 'https://nic.ua',
+  'ukraine': 'https://nic.ua',
+  'imena.ua': 'https://imena.ua',
+  'freehost': 'https://freehost.com.ua',
+  'thehost': 'https://thehost.ua',
+  'fornex': 'https://fornex.com',
+  'ukraine.com.ua': 'https://ukraine.com.ua',
+  // ==================== 东欧/巴尔干注册商 ====================
+  'nic.bg': 'https://www.register.bg',
+  'superhosting': 'https://www.superhosting.bg',
+  'icn.bg': 'https://www.icn.bg',
+  'nic.ro': 'https://www.rotld.ro',
+  'romarg': 'https://www.romarg.ro',
+  'gazduire': 'https://www.gazduire.ro',
+  'rnids': 'https://www.rnids.rs',
+  'eunet.rs': 'https://www.eunet.rs',
+  'loopia.rs': 'https://www.loopia.rs',
+  'arnes': 'https://www.arnes.si',
+  'domenca': 'https://www.domenca.si',
+  'carnet': 'https://www.carnet.hr',
+  'plus.hr': 'https://www.plus.hr',
+  'akep.al': 'https://akep.al',
+  // ==================== 南美洲注册商 ====================
+  'registro.br': 'https://registro.br',
+  'nic.br': 'https://www.nic.br',
+  'uol': 'https://dominio.uol.com.br',
+  'locaweb': 'https://www.locaweb.com.br',
+  'kinghost': 'https://king.host',
+  'hostgator.com.br': 'https://www.hostgator.com.br',
+  'nic.ar': 'https://nic.ar',
+  'donweb': 'https://donweb.com',
+  'nic.cl': 'https://www.nic.cl',
+  'webhosting.cl': 'https://www.webhosting.cl',
+  '.co internet': 'https://www.cointernet.co',
+  'punto.co': 'https://punto.co',
+  'nic.pe': 'https://www.nic.pe',
+  'hostingperu': 'https://www.hostingperu.pe',
+  // ==================== 中东注册商 ====================
+  'saudi nic': 'https://www.nic.net.sa',
+  'solutions by stc': 'https://solutions.com.sa',
+  'etisalat': 'https://www.etisalat.ae',
+  'du': 'https://www.du.ae',
+  'godaddy.ae': 'https://ae.godaddy.com',
+  'nic.ir': 'https://www.nic.ir',
+  'irtld': 'https://irnic.ir',
+  'hosting.ir': 'https://hosting.ir',
+  'dotil': 'https://www.domain.co.il',
+  'isoc-il': 'https://www.isoc.org.il',
+  // ==================== 非洲注册商 ====================
+  'zadna': 'https://www.registry.net.za',
+  'co.za': 'https://www.co.za',
+  'web4africa': 'https://www.web4africa.net',
+  'qhoster': 'https://qhoster.com',
+  'nic.eg': 'https://www.egregistry.eg',
+  'egyptiannic': 'https://www.egregistry.eg',
+  'nic.ng': 'https://www.nira.org.ng',
+  'whogohost': 'https://www.whogohost.com',
+  'smartweb': 'https://smartweb.com.ng',
+  'kenic': 'https://www.kenic.or.ke',
+  'kenya web': 'https://kenyaweb.com',
+  'tznic': 'https://tznic.or.tz',
+  'anrt': 'https://www.anrt.ma',
+  'nic.ma': 'https://www.nic.ma',
+  'genious communications': 'https://www.genious.com',
+  'nic.sn': 'https://www.nic.sn',
+  'arc informatique': 'https://www.arc.sn',
 };
 
 // DNS服务商映射 (超级扩展版 - 全球大中小DNS服务商全覆盖)
@@ -967,47 +1046,156 @@ async function getWhoisServerFromDb(tld: string): Promise<string | null> {
   }
 }
 
-// 通过 TCP 端口 43 查询 WHOIS
-async function queryWhoisTcp(domain: string, server: string, timeout = 10000): Promise<string | null> {
+// ccTLD 特殊查询格式映射
+const CCTLD_QUERY_FORMATS: Record<string, string[]> = {
+  // 格式: 'tld': ['格式1', '格式2', ...] - %s 会被替换为域名
+  'ge': ['%s', 'domain %s'],
+  'ru': ['%s'],
+  'su': ['%s'],
+  'ua': ['%s'],
+  'by': ['%s'],
+  'kz': ['%s'],
+  'de': ['-T dn,ace %s', '%s'],
+  'at': ['%s'],
+  'ch': ['%s'],
+  'nl': ['%s'],
+  'be': ['%s'],
+  'fr': ['%s'],
+  'it': ['%s'],
+  'es': ['%s'],
+  'pt': ['%s'],
+  'pl': ['%s'],
+  'cz': ['%s'],
+  'sk': ['%s'],
+  'hu': ['%s'],
+  'ro': ['%s'],
+  'bg': ['%s'],
+  'hr': ['%s'],
+  'si': ['%s'],
+  'rs': ['%s'],
+  'me': ['%s'],
+  'mk': ['%s'],
+  'al': ['%s'],
+  'gr': ['%s'],
+  'tr': ['%s'],
+  'il': ['%s'],
+  'ae': ['%s'],
+  'sa': ['%s'],
+  'ir': ['%s'],
+  'pk': ['%s'],
+  'in': ['%s'],
+  'bd': ['%s'],
+  'lk': ['%s'],
+  'np': ['%s'],
+  'mm': ['%s'],
+  'th': ['%s'],
+  'vn': ['%s'],
+  'my': ['%s'],
+  'sg': ['%s'],
+  'id': ['%s'],
+  'ph': ['%s'],
+  'kr': ['%s'],
+  'jp': ['%s'],
+  'tw': ['%s'],
+  'hk': ['%s'],
+  'mo': ['%s'],
+  'cn': ['%s'],
+  'au': ['%s'],
+  'nz': ['%s'],
+  'za': ['%s'],
+  'eg': ['%s'],
+  'ng': ['%s'],
+  'ke': ['%s'],
+  'gh': ['%s'],
+  'tz': ['%s'],
+  'ma': ['%s'],
+  'dz': ['%s'],
+  'tn': ['%s'],
+  'ly': ['%s'],
+  'sn': ['%s'],
+  'ci': ['%s'],
+  'cm': ['%s'],
+  'br': ['%s'],
+  'ar': ['%s'],
+  'cl': ['%s'],
+  'co': ['%s'],
+  'pe': ['%s'],
+  'mx': ['%s'],
+  'ca': ['%s'],
+  'uk': ['%s'],
+  'ie': ['%s'],
+  'se': ['%s'],
+  'no': ['%s'],
+  'dk': ['%s'],
+  'fi': ['%s'],
+  'ee': ['%s'],
+  'lv': ['%s'],
+  'lt': ['%s'],
+};
+
+// 判断是否为 ccTLD（两字母国家代码顶级域）
+function isCcTld(tld: string): boolean {
+  return tld.length === 2 && /^[a-z]{2}$/.test(tld.toLowerCase());
+}
+
+// 通过 TCP 端口 43 查询 WHOIS - 增强版
+async function queryWhoisTcp(domain: string, server: string, timeout = 15000, queryFormat?: string): Promise<string | null> {
   try {
-    console.log(`Querying WHOIS via TCP: ${server}:43 for ${domain}`);
+    const query = queryFormat ? queryFormat.replace('%s', domain) : domain;
+    console.log(`Querying WHOIS via TCP: ${server}:43 for ${domain} (query: "${query}")`);
     
-    const conn = await Deno.connect({
+    // 使用 Promise.race 实现超时
+    const connectPromise = Deno.connect({
       hostname: server,
       port: 43,
     });
     
-    // 设置超时
-    const timeoutId = setTimeout(() => {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Connection timeout')), timeout);
+    });
+    
+    let conn: Deno.Conn;
+    try {
+      conn = await Promise.race([connectPromise, timeoutPromise]);
+    } catch (connectError) {
+      console.error(`WHOIS TCP connection failed for ${server}:`, connectError);
+      return null;
+    }
+    
+    // 设置读取超时
+    const readTimeoutId = setTimeout(() => {
       try { conn.close(); } catch {}
     }, timeout);
     
     // 发送查询
     const encoder = new TextEncoder();
-    const query = `${domain}\r\n`;
-    await conn.write(encoder.encode(query));
+    const fullQuery = `${query}\r\n`;
+    await conn.write(encoder.encode(fullQuery));
     
     // 读取响应
-    const decoder = new TextDecoder();
+    const decoder = new TextDecoder('utf-8', { fatal: false });
     const chunks: string[] = [];
-    const buffer = new Uint8Array(4096);
+    const buffer = new Uint8Array(8192);
     
     try {
       while (true) {
         const bytesRead = await conn.read(buffer);
         if (bytesRead === null) break;
-        chunks.push(decoder.decode(buffer.subarray(0, bytesRead)));
+        chunks.push(decoder.decode(buffer.subarray(0, bytesRead), { stream: true }));
       }
     } catch (e) {
-      // 连接关闭或超时
+      // 连接关闭或读取完成
+      console.log(`WHOIS TCP read completed or connection closed`);
     }
     
-    clearTimeout(timeoutId);
-    conn.close();
+    clearTimeout(readTimeoutId);
+    try { conn.close(); } catch {}
     
     const response = chunks.join('');
     if (response.length > 0) {
-      console.log(`WHOIS TCP response received: ${response.length} bytes`);
+      console.log(`WHOIS TCP response received: ${response.length} bytes from ${server}`);
+      // 打印响应前200字符用于调试
+      console.log(`WHOIS response preview: ${response.substring(0, 200).replace(/\n/g, '\\n')}`);
       return response;
     }
     
@@ -1016,6 +1204,30 @@ async function queryWhoisTcp(domain: string, server: string, timeout = 10000): P
     console.error(`WHOIS TCP query failed for ${server}:`, error);
     return null;
   }
+}
+
+// 尝试多种查询格式
+async function queryWhoisWithFormats(domain: string, server: string, tld: string): Promise<string | null> {
+  const formats = CCTLD_QUERY_FORMATS[tld] || ['%s'];
+  
+  for (const format of formats) {
+    const response = await queryWhoisTcp(domain, server, 15000, format);
+    if (response && response.length > 50) {
+      // 检查是否是有效响应（不是错误消息）
+      const lowerResponse = response.toLowerCase();
+      if (!lowerResponse.includes('error') && 
+          !lowerResponse.includes('invalid') &&
+          !lowerResponse.includes('not found') &&
+          !lowerResponse.includes('no match') &&
+          !lowerResponse.includes('no entries found')) {
+        return response;
+      }
+      // 即使是 "not found" 也返回，可能是域名未注册
+      return response;
+    }
+  }
+  
+  return null;
 }
 
 // 通过 HTTP 查询 WHOIS (部分注册局支持)
@@ -1639,62 +1851,163 @@ function parseWhoisText(text: string, domain: string): any {
   return result;
 }
 
-// 主 WHOIS 查询函数
+// 从 IANA WHOIS 获取 TLD 的 WHOIS 服务器
+async function getWhoisServerFromIana(tld: string): Promise<string | null> {
+  try {
+    console.log(`Querying IANA WHOIS for .${tld} WHOIS server`);
+    const response = await queryWhoisTcp(tld, 'whois.iana.org', 10000);
+    if (response) {
+      const whoisMatch = response.match(/whois:\s*(\S+)/i);
+      if (whoisMatch && whoisMatch[1]) {
+        const server = whoisMatch[1].trim();
+        console.log(`IANA returned WHOIS server for .${tld}: ${server}`);
+        return server;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error(`Failed to get WHOIS server from IANA for .${tld}:`, error);
+    return null;
+  }
+}
+
+// 主 WHOIS 查询函数 - 增强版
 async function queryWhois(domain: string): Promise<any> {
   const tld = getTld(domain);
+  const isCctld = isCcTld(tld);
+  
+  console.log(`Starting WHOIS query for ${domain} (TLD: .${tld}, ccTLD: ${isCctld})`);
   
   // 1. 从本地数据库获取 WHOIS 服务器
-  const whoisServer = await getWhoisServerFromDb(tld);
+  let whoisServer = await getWhoisServerFromDb(tld);
   
+  // 2. 如果数据库没有，尝试从 IANA 获取
+  if (!whoisServer) {
+    console.log(`No WHOIS server in DB for .${tld}, trying IANA...`);
+    whoisServer = await getWhoisServerFromIana(tld);
+  }
+  
+  // 3. 尝试本地/IANA 获取的服务器
   if (whoisServer) {
-    // 2. 尝试 TCP 端口 43 查询
-    const tcpResponse = await queryWhoisTcp(domain, whoisServer);
+    console.log(`Using WHOIS server: ${whoisServer} for .${tld}`);
+    
+    // 对于 ccTLD，使用多格式查询
+    const tcpResponse = isCctld 
+      ? await queryWhoisWithFormats(domain, whoisServer, tld)
+      : await queryWhoisTcp(domain, whoisServer, 15000);
+    
     if (tcpResponse) {
       const parsed = parseWhoisText(tcpResponse, domain);
+      // 检查是否获取到有效数据
       if (parsed.registrar || parsed.registrationDate || parsed.nameServers.length > 0) {
         console.log('WHOIS TCP query successful');
         return parsed;
       }
+      // 检查是否是 "not found" 响应
+      const lowerResponse = tcpResponse.toLowerCase();
+      if (lowerResponse.includes('not found') || 
+          lowerResponse.includes('no match') ||
+          lowerResponse.includes('no entries') ||
+          lowerResponse.includes('no data found') ||
+          lowerResponse.includes('domain not registered')) {
+        console.log('WHOIS server indicates domain not found');
+        return { ...parsed, domainNotFound: true };
+      }
     }
   }
   
-  // 3. 尝试常见的公共 WHOIS 服务器
-  const fallbackServers = [
-    'whois.verisign-grs.com',  // .com/.net
-    'whois.iana.org',
-    'whois.internic.net',
-  ];
-  
-  for (const server of fallbackServers) {
-    const tcpResponse = await queryWhoisTcp(domain, server);
-    if (tcpResponse) {
-      // 检查是否有重定向信息
-      const referMatch = tcpResponse.match(/Registrar WHOIS Server:\s*(\S+)/i) ||
-                         tcpResponse.match(/whois:\s*(\S+)/i) ||
-                         tcpResponse.match(/refer:\s*(\S+)/i);
-      
-      if (referMatch && referMatch[1]) {
-        const referServer = referMatch[1].trim();
-        console.log(`Found referral WHOIS server: ${referServer}`);
-        const referResponse = await queryWhoisTcp(domain, referServer);
-        if (referResponse) {
-          const parsed = parseWhoisText(referResponse, domain);
-          if (parsed.registrar || parsed.registrationDate) {
-            console.log('WHOIS referral query successful');
-            return parsed;
+  // 4. 对于 gTLD，尝试公共 WHOIS 服务器
+  // 注意：VeriSign 只处理 .com/.net/.edu，不要用于 ccTLD
+  if (!isCctld) {
+    const gTldServers: Record<string, string[]> = {
+      'com': ['whois.verisign-grs.com'],
+      'net': ['whois.verisign-grs.com'],
+      'org': ['whois.pir.org'],
+      'info': ['whois.afilias.net'],
+      'biz': ['whois.biz'],
+      'mobi': ['whois.dotmobiregistry.net'],
+      'name': ['whois.nic.name'],
+      'pro': ['whois.registrypro.pro'],
+      'asia': ['whois.nic.asia'],
+      'tel': ['whois.nic.tel'],
+      'xxx': ['whois.nic.xxx'],
+      'club': ['whois.nic.club'],
+      'xyz': ['whois.nic.xyz'],
+      'top': ['whois.nic.top'],
+      'wang': ['whois.nic.wang'],
+      'vip': ['whois.nic.vip'],
+      'win': ['whois.nic.win'],
+      'bid': ['whois.nic.bid'],
+      'site': ['whois.nic.site'],
+      'online': ['whois.nic.online'],
+      'tech': ['whois.nic.tech'],
+      'store': ['whois.nic.store'],
+      'shop': ['whois.nic.shop'],
+      'app': ['whois.nic.google'],
+      'dev': ['whois.nic.google'],
+      'io': ['whois.nic.io'],
+      'co': ['whois.nic.co'],
+      'me': ['whois.nic.me'],
+      'tv': ['whois.nic.tv'],
+      'cc': ['whois.nic.cc'],
+      'ws': ['whois.website.ws'],
+      'la': ['whois.nic.la'],
+    };
+    
+    const tldServers = gTldServers[tld] || ['whois.verisign-grs.com', 'whois.internic.net'];
+    
+    for (const server of tldServers) {
+      const tcpResponse = await queryWhoisTcp(domain, server, 15000);
+      if (tcpResponse) {
+        // 检查是否有重定向信息
+        const referMatch = tcpResponse.match(/Registrar WHOIS Server:\s*(\S+)/i) ||
+                           tcpResponse.match(/whois:\s*(\S+)/i) ||
+                           tcpResponse.match(/refer:\s*(\S+)/i);
+        
+        if (referMatch && referMatch[1]) {
+          const referServer = referMatch[1].trim();
+          console.log(`Found referral WHOIS server: ${referServer}`);
+          const referResponse = await queryWhoisTcp(domain, referServer, 15000);
+          if (referResponse) {
+            const parsed = parseWhoisText(referResponse, domain);
+            if (parsed.registrar || parsed.registrationDate) {
+              console.log('WHOIS referral query successful');
+              return parsed;
+            }
           }
         }
-      }
-      
-      const parsed = parseWhoisText(tcpResponse, domain);
-      if (parsed.registrar || parsed.registrationDate) {
-        console.log('WHOIS fallback query successful');
-        return parsed;
+        
+        const parsed = parseWhoisText(tcpResponse, domain);
+        if (parsed.registrar || parsed.registrationDate) {
+          console.log('WHOIS gTLD server query successful');
+          return parsed;
+        }
       }
     }
   }
   
-  // 4. 尝试 HTTP WHOIS 作为最后手段
+  // 5. 对于 ccTLD，尝试构造标准 WHOIS 服务器地址
+  if (isCctld && !whoisServer) {
+    const guessedServers = [
+      `whois.nic.${tld}`,
+      `whois.${tld}`,
+      `whois.registry.${tld}`,
+    ];
+    
+    for (const server of guessedServers) {
+      console.log(`Trying guessed ccTLD WHOIS server: ${server}`);
+      const tcpResponse = await queryWhoisWithFormats(domain, server, tld);
+      if (tcpResponse && tcpResponse.length > 100) {
+        const parsed = parseWhoisText(tcpResponse, domain);
+        if (parsed.registrar || parsed.registrationDate || parsed.nameServers.length > 0) {
+          console.log(`Guessed WHOIS server ${server} successful`);
+          return parsed;
+        }
+      }
+    }
+  }
+  
+  // 6. 尝试 HTTP WHOIS 作为最后手段
   const httpResponse = await queryWhoisHttp(domain, tld);
   if (httpResponse) {
     const parsed = parseWhoisText(httpResponse, domain);
@@ -1704,6 +2017,7 @@ async function queryWhois(domain: string): Promise<any> {
     }
   }
   
+  console.log(`All WHOIS methods failed for ${domain}`);
   return null;
 }
 
