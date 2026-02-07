@@ -151,7 +151,7 @@ const REGISTRAR_WEBSITES: Record<string, string> = {
   'verisign': 'https://www.verisign.com',
 };
 
-// DNS服务商映射 (扩展版)
+// DNS服务商映射 (扩展版 - 包含更多中国服务商)
 const DNS_PROVIDERS: Record<string, { name: string; website: string }> = {
   // 全球CDN/DNS提供商
   'cloudflare': { name: 'Cloudflare', website: 'https://www.cloudflare.com' },
@@ -177,21 +177,76 @@ const DNS_PROVIDERS: Record<string, { name: string; website: string }> = {
   'namesilo': { name: 'NameSilo DNS', website: 'https://www.namesilo.com' },
   'squarespace': { name: 'Squarespace DNS', website: 'https://domains.squarespace.com' },
   'hover': { name: 'Hover DNS', website: 'https://www.hover.com' },
-  // 中国DNS提供商
+  // ==================== 中国DNS提供商 (扩展) ====================
+  // 阿里云/万网
   'dnspod': { name: 'DNSPod', website: 'https://www.dnspod.cn' },
   'alidns': { name: '阿里云DNS', website: 'https://www.aliyun.com/product/dns' },
   'hichina': { name: '万网DNS', website: 'https://wanwang.aliyun.com' },
   'aliyun': { name: '阿里云DNS', website: 'https://www.aliyun.com/product/dns' },
+  'taobao': { name: '阿里云DNS', website: 'https://www.aliyun.com/product/dns' },
+  // 腾讯云
   'tencentdns': { name: '腾讯云DNS', website: 'https://cloud.tencent.com/product/dns' },
   'tencent': { name: '腾讯云DNS', website: 'https://cloud.tencent.com/product/dns' },
+  'qq.com': { name: '腾讯云DNS', website: 'https://cloud.tencent.com/product/dns' },
+  // 华为云
   'huaweicloud': { name: '华为云DNS', website: 'https://www.huaweicloud.com/product/dns.html' },
+  'hwclouds': { name: '华为云DNS', website: 'https://www.huaweicloud.com/product/dns.html' },
+  // 百度
   'baidubce': { name: '百度云DNS', website: 'https://cloud.baidu.com/product/dns.html' },
-  'dnsv': { name: 'DNSV', website: 'https://www.dns.com' },
+  'baidu': { name: '百度DNS', website: 'https://www.baidu.com' },
+  'bdstatic': { name: '百度DNS', website: 'https://www.baidu.com' },
+  // 易名中国
+  'ename': { name: '易名中国', website: 'https://www.ename.com' },
+  'ename.com': { name: '易名中国', website: 'https://www.ename.com' },
+  'enamedns': { name: '易名中国', website: 'https://www.ename.com' },
+  // 爱名网 22.cn
+  '22.cn': { name: '爱名网', website: 'https://www.22.cn' },
+  '22cn': { name: '爱名网', website: 'https://www.22.cn' },
+  'dns22': { name: '爱名网', website: 'https://www.22.cn' },
+  // 西部数码
+  'west': { name: '西部数码', website: 'https://www.west.cn' },
+  'west.cn': { name: '西部数码', website: 'https://www.west.cn' },
+  'myhostadmin': { name: '西部数码', website: 'https://www.west.cn' },
+  // 新网
+  'xinnet': { name: '新网', website: 'https://www.xinnet.com' },
+  'xinnetdns': { name: '新网', website: 'https://www.xinnet.com' },
+  // DNS.COM
+  'dnsv': { name: 'DNS.COM', website: 'https://www.dns.com' },
   'dns.com': { name: 'DNS.COM', website: 'https://www.dns.com' },
-  'west': { name: '西部数码DNS', website: 'https://www.west.cn' },
-  'xinnet': { name: '新网DNS', website: 'https://www.xinnet.com' },
+  'iidns': { name: 'DNS.COM', website: 'https://www.dns.com' },
+  // 时代互联
+  'now.cn': { name: '时代互联', website: 'https://www.now.cn' },
+  'nowcn': { name: '时代互联', website: 'https://www.now.cn' },
+  // 中国互联网络信息中心
+  'cnnic': { name: 'CNNIC', website: 'https://www.cnnic.cn' },
+  // 商务中国
+  'bizcn': { name: '商务中国', website: 'https://www.bizcn.com' },
+  // 中资源
+  'zzy.cn': { name: '中资源', website: 'https://www.zzy.cn' },
+  // 纳点
+  'idc1': { name: '纳点网络', website: 'https://www.idc1.com' },
+  // 美橙互联
+  'cndns': { name: '美橙互联', website: 'https://www.cndns.com' },
+  // 花生壳
+  'oray': { name: '花生壳', website: 'https://domain.oray.com' },
+  // 字节跳动
+  'bytedance': { name: '字节跳动', website: 'https://www.volcengine.com' },
+  'volcengine': { name: '火山引擎', website: 'https://www.volcengine.com' },
+  // 京东云
+  'jdcloud': { name: '京东云', website: 'https://www.jdcloud.com' },
+  'jd.com': { name: '京东云', website: 'https://www.jdcloud.com' },
+  // 网易
+  'netease': { name: '网易', website: 'https://www.163.com' },
+  '163.com': { name: '网易', website: 'https://www.163.com' },
+  // 金山云
+  'ksyun': { name: '金山云', website: 'https://www.ksyun.com' },
+  // 七牛云
+  'qiniu': { name: '七牛云', website: 'https://www.qiniu.com' },
+  // UCloud
+  'ucloud': { name: 'UCloud', website: 'https://www.ucloud.cn' },
+  // CloudXNS
   'cloudxns': { name: 'CloudXNS', website: 'https://www.cloudxns.net' },
-  // 其他
+  // ==================== 其他国际提供商 ====================
   'he.net': { name: 'Hurricane Electric', website: 'https://dns.he.net' },
   'easydns': { name: 'easyDNS', website: 'https://easydns.com' },
   'constellix': { name: 'Constellix', website: 'https://constellix.com' },
@@ -200,6 +255,14 @@ const DNS_PROVIDERS: Record<string, { name: string; website: string }> = {
   'vultr': { name: 'Vultr DNS', website: 'https://www.vultr.com' },
   'vercel': { name: 'Vercel DNS', website: 'https://vercel.com' },
   'netlify': { name: 'Netlify DNS', website: 'https://www.netlify.com' },
+  'hostinger': { name: 'Hostinger', website: 'https://www.hostinger.com' },
+  'dreamhost': { name: 'DreamHost', website: 'https://www.dreamhost.com' },
+  'bluehost': { name: 'Bluehost', website: 'https://www.bluehost.com' },
+  'siteground': { name: 'SiteGround', website: 'https://www.siteground.com' },
+  'hostgator': { name: 'HostGator', website: 'https://www.hostgator.com' },
+  'ovh': { name: 'OVH', website: 'https://www.ovhcloud.com' },
+  'hetzner': { name: 'Hetzner', website: 'https://www.hetzner.com' },
+  'scaleway': { name: 'Scaleway', website: 'https://www.scaleway.com' },
 };
 
 // RDAP Bootstrap URL
