@@ -40,9 +40,10 @@ export interface WhoisData {
 }
 
 export interface PricingData {
-  registerPrice?: number;
-  renewPrice?: number;
+  registerPrice?: number | null;
+  renewPrice?: number | null;
   isPremium?: boolean;
+  currency?: string;
 }
 
 interface DomainResultCardProps {
@@ -100,13 +101,13 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
           <span className="text-muted-foreground">溢价:</span>
           <span className="font-medium">{pricing?.isPremium ? '是' : '否'}</span>
         </div>
-        {pricing?.registerPrice && (
+        {pricing?.registerPrice !== null && pricing?.registerPrice !== undefined && (
           <div className="flex items-center gap-1">
             <span className="text-muted-foreground">注册:</span>
             <span className="font-medium text-primary">¥{pricing.registerPrice}</span>
           </div>
         )}
-        {pricing?.renewPrice && (
+        {pricing?.renewPrice !== null && pricing?.renewPrice !== undefined && (
           <div className="flex items-center gap-1">
             <span className="text-muted-foreground">续费:</span>
             <span className="font-medium text-primary">¥{pricing.renewPrice}</span>

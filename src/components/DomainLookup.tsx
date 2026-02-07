@@ -11,9 +11,10 @@ import { Badge } from '@/components/ui/badge';
 interface DomainLookupProps {
   initialDomain?: string;
   onFavoriteAdded?: () => void;
+  onDomainQueried?: (domain: string) => void;
 }
 
-const DomainLookup = ({ initialDomain, onFavoriteAdded }: DomainLookupProps) => {
+const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: DomainLookupProps) => {
   const [domain, setDomain] = useState(initialDomain || '');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<WhoisData | null>(null);
@@ -129,6 +130,9 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded }: DomainLookupProps) => 
         if (data.pricing) {
           setPricing(data.pricing);
         }
+        
+        // Notify parent of successful query
+        onDomainQueried?.(domainToLookup.trim().toLowerCase());
         
         await saveToHistory(domainToLookup.trim(), whoisData);
         await checkIsFavorite(domainToLookup.trim());

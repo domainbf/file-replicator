@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import DomainLookup from '@/components/DomainLookup';
 import QueryHistory from '@/components/QueryHistory';
 import Favorites from '@/components/Favorites';
@@ -14,11 +14,17 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-const Index = () => {
+interface IndexProps {
+  initialDomain?: string;
+}
+
+const Index = ({ initialDomain: propDomain }: IndexProps) => {
   const [isDark, setIsDark] = useState(false);
-  const [selectedDomain, setSelectedDomain] = useState('');
+  const [selectedDomain, setSelectedDomain] = useState(propDomain || '');
   const [favoriteRefresh, setFavoriteRefresh] = useState(0);
   const { user, loading, signOut } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (isDark) {
@@ -28,12 +34,28 @@ const Index = () => {
     }
   }, [isDark]);
 
+  // Update selected domain when prop changes
+  useEffect(() => {
+    if (propDomain) {
+      setSelectedDomain(propDomain);
+    }
+  }, [propDomain]);
+
   const handleSelectDomain = (domain: string) => {
     setSelectedDomain(domain);
+    // Update URL when selecting a domain
+    navigate(`/${domain}`);
   };
 
   const handleFavoriteAdded = () => {
     setFavoriteRefresh(prev => prev + 1);
+  };
+
+  // Callback when domain is queried - update URL
+  const handleDomainQueried = (domain: string) => {
+    if (domain && location.pathname !== `/${domain}`) {
+      navigate(`/${domain}`, { replace: true });
+    }
   };
 
   return (
@@ -87,23 +109,26 @@ const Index = () => {
         </div>
 
         {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className={`grid grid-cols-1 ${user ? 'lg:grid-cols-3' : ''} gap-6`}>
           {/* Main Lookup Component */}
-          <div className="lg:col-span-2">
+          <div className={user ? 'lg:col-span-2' : ''}>
             <DomainLookup 
               initialDomain={selectedDomain} 
               onFavoriteAdded={handleFavoriteAdded}
+              onDomainQueried={handleDomainQueried}
             />
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            <QueryHistory onSelectDomain={handleSelectDomain} />
-            <Favorites 
-              onSelectDomain={handleSelectDomain} 
-              refreshTrigger={favoriteRefresh}
-            />
-          </div>
+          {/* Sidebar - Only show when logged in */}
+          {user && (
+            <div className="space-y-6">
+              <QueryHistory onSelectDomain={handleSelectDomain} />
+              <Favorites 
+                onSelectDomain={handleSelectDomain} 
+                refreshTrigger={favoriteRefresh}
+              />
+            </div>
+          )}
         </div>
       </div>
 
