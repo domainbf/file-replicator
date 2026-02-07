@@ -37,6 +37,7 @@ const FAST_WHOIS_SERVERS = new Set([
   'whois.pir.org',
   'whois.nic.google',
   'whois.cloudflare.com',
+  'whois.nic.net.ng',
 ]);
 
 // ==================== 完整的域名状态码映射 (支持多语言) ====================
