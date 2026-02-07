@@ -622,12 +622,13 @@ function parseRdapResponse(data: RdapResponse, rawRdap: any): any {
 }
 
 // Query pricing API from api.tian.hu
+// API returns: { code: 200, message: "...", data: { premium, register, renew, register_usd, renew_usd, cached } }
 async function queryPricing(domain: string): Promise<any> {
   const url = `https://api.tian.hu/pricing/${encodeURIComponent(domain)}`;
   
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     
     console.log(`Querying pricing API: ${url}`);
     
@@ -643,17 +644,25 @@ async function queryPricing(domain: string): Promise<any> {
     clearTimeout(timeoutId);
     
     if (response.ok) {
-      const data = await response.json();
-      console.log('Pricing API response:', JSON.stringify(data));
+      const responseData = await response.json();
+      console.log('Pricing API response:', JSON.stringify(responseData));
       
-      // api.tian.hu /pricing/{domain} returns:
-      // premium, register, renew, register_usd, renew_usd, cached
+      // API returns: { code: 200, data: { premium, register, renew, ... } }
+      const data = responseData.data;
+      if (!data) {
+        console.log('Pricing API: No data field in response');
+        return null;
+      }
+      
+      // premium can be string "true"/"false" or boolean
+      const isPremium = data.premium === true || data.premium === 'true';
+      
       return {
-        registerPrice: data.register || null,
-        renewPrice: data.renew || null,
-        isPremium: data.premium || false,
-        registerPriceUsd: data.register_usd || null,
-        renewPriceUsd: data.renew_usd || null,
+        registerPrice: data.register ? Number(data.register) : null,
+        renewPrice: data.renew ? Number(data.renew) : null,
+        isPremium: isPremium,
+        registerPriceUsd: data.register_usd ? Number(data.register_usd) : null,
+        renewPriceUsd: data.renew_usd ? Number(data.renew_usd) : null,
         cached: data.cached || false,
       };
     } else {
