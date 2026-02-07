@@ -40,6 +40,11 @@ const Index = ({ initialDomain: propDomain }: IndexProps) => {
     navigate(`/${domain}`);
   };
 
+  const handleLogoClick = () => {
+    setSelectedDomain('');
+    navigate('/');
+  };
+
   const handleFavoriteAdded = () => {
     setFavoriteRefresh(prev => prev + 1);
   };
@@ -54,7 +59,7 @@ const Index = ({ initialDomain: propDomain }: IndexProps) => {
     <div className="min-h-screen bg-background flex flex-col">
       <div className="container max-w-6xl mx-auto px-4 flex-1">
         {/* Top Navigation Bar - Pill style */}
-        <TopNavBar isDark={isDark} setIsDark={setIsDark} />
+        <TopNavBar isDark={isDark} setIsDark={setIsDark} onLogoClick={handleLogoClick} />
 
         {/* Header description */}
         <div className="text-center mb-6">

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Clock } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { Badge } from '@/components/ui/badge';
 import DomainFavicon from './DomainFavicon';
 
 interface RecentQuery {
   domain: string;
   timestamp: number;
+  isRegistered?: boolean;
 }
 
 interface RecentQueriesProps {
@@ -17,7 +19,7 @@ const MAX_RECENT_QUERIES = 10;
 const STORAGE_KEY = 'recent_domain_queries';
 
 // Helper to add a query to recent history
-export const addRecentQuery = (domain: string) => {
+export const addRecentQuery = (domain: string, isRegistered: boolean = true) => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     let queries: RecentQuery[] = stored ? JSON.parse(stored) : [];
@@ -29,6 +31,7 @@ export const addRecentQuery = (domain: string) => {
     queries.unshift({
       domain: domain.toLowerCase(),
       timestamp: Date.now(),
+      isRegistered,
     });
     
     // Limit size
@@ -117,8 +120,23 @@ const RecentQueries = ({ onSelectDomain, refreshTrigger }: RecentQueriesProps) =
                   {query.domain}
                 </span>
               </div>
-              <div className="text-[10px] text-muted-foreground">
-                {formatTime(query.timestamp)}
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[10px] text-muted-foreground">
+                  {formatTime(query.timestamp)}
+                </span>
+                <Badge 
+                  variant="outline" 
+                  className={`text-[9px] h-4 px-1 ${
+                    query.isRegistered !== false 
+                      ? 'text-primary border-primary/30' 
+                      : 'text-success border-success/30'
+                  }`}
+                >
+                  {query.isRegistered !== false 
+                    ? (language === 'zh' ? '已注册' : 'Registered')
+                    : (language === 'zh' ? '未注册' : 'Available')
+                  }
+                </Badge>
               </div>
             </div>
           </button>
