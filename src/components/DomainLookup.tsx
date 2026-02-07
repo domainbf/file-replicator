@@ -235,13 +235,13 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
       )}
 
       {loading && (
-        <div className="flex items-center justify-center py-10">
+        <div className="flex items-center justify-center py-10 min-h-[200px]">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       )}
 
       {result && !loading && (
-        <div className="space-y-3">
+        <div className="space-y-3 animate-in fade-in-0 duration-200">
           {user && (
             <div className="flex justify-end">
               <Button

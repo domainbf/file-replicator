@@ -75,19 +75,22 @@ const ShareDialog = ({ data, pricing }: ShareDialogProps) => {
   }, [toast, language, isDarkMode]);
 
   const handleScreenshot = async () => {
-    setImageUrl(null);
+    // Pre-generate image before opening dialog to prevent flicker
+    setGenerating(true);
     setScreenshotOpen(true);
-    setTimeout(async () => {
+    // Use requestAnimationFrame for smoother rendering
+    requestAnimationFrame(async () => {
       await generateImage();
-    }, 100);
+    });
   };
 
   const handleShare = async () => {
-    setImageUrl(null);
+    // Pre-generate image before opening dialog to prevent flicker
+    setGenerating(true);
     setShareOpen(true);
-    setTimeout(async () => {
+    requestAnimationFrame(async () => {
       await generateImage();
-    }, 100);
+    });
   };
 
   const downloadImage = () => {
@@ -179,29 +182,29 @@ const ShareDialog = ({ data, pricing }: ShareDialogProps) => {
 
   return (
     <>
-      {/* Screenshot & Share Buttons */}
+      {/* Screenshot & Share Buttons - icon only */}
       <Button 
         variant="outline" 
-        size="sm" 
-        className="h-7 gap-1.5 text-xs"
+        size="icon"
+        className="h-7 w-7"
         onClick={handleScreenshot}
+        title={language === 'zh' ? '截图' : 'Screenshot'}
       >
-        <Camera className="h-3 w-3" />
-        {language === 'zh' ? '截图' : 'Screenshot'}
+        <Camera className="h-3.5 w-3.5" />
       </Button>
       
       <Button 
         variant="outline" 
-        size="sm" 
-        className="h-7 gap-1.5 text-xs"
+        size="icon"
+        className="h-7 w-7"
         onClick={handleShare}
+        title={language === 'zh' ? '分享' : 'Share'}
       >
-        <Share2 className="h-3 w-3" />
-        {language === 'zh' ? '分享' : 'Share'}
+        <Share2 className="h-3.5 w-3.5" />
       </Button>
 
-      {/* Hidden card for rendering */}
-      <div className="fixed -left-[9999px] top-0 z-[-1]">
+      {/* Hidden card for rendering - always render to avoid flicker */}
+      <div className="fixed -left-[9999px] top-0 z-[-1] pointer-events-none">
         <ShareCard ref={cardRef} data={data} pricing={pricing} isDark={isDarkMode} siteUrl={siteUrl} />
       </div>
 

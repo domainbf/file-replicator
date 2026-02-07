@@ -123,22 +123,30 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
       {/* Price Tags Row */}
       <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 text-sm">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="whitespace-nowrap">
-            <span className="text-muted-foreground">{t('pricing.register')}:</span>
-            <span className="font-medium text-primary ml-1">
-              {pricing?.registerPrice ? `¥${pricing.registerPrice}` : '-'}
+          {pricing?.registerPrice || pricing?.renewPrice ? (
+            <>
+              <span className="whitespace-nowrap">
+                <span className="text-muted-foreground">{t('pricing.register')}:</span>
+                <span className="font-medium text-primary ml-1">
+                  {pricing?.registerPrice ? `¥${pricing.registerPrice}` : '-'}
+                </span>
+              </span>
+              <span className="whitespace-nowrap">
+                <span className="text-muted-foreground">{t('pricing.renew')}:</span>
+                <span className="font-medium text-primary ml-1">
+                  {pricing?.renewPrice ? `¥${pricing.renewPrice}` : '-'}
+                </span>
+              </span>
+              <span className="whitespace-nowrap">
+                <span className="text-muted-foreground">{t('pricing.premium')}:</span>
+                <span className="font-medium ml-1">{pricing?.isPremium ? t('pricing.yes') : t('pricing.no')}</span>
+              </span>
+            </>
+          ) : (
+            <span className="text-xs text-muted-foreground/70">
+              {language === 'zh' ? '价格获取失败！' : 'Price fetch failed!'}
             </span>
-          </span>
-          <span className="whitespace-nowrap">
-            <span className="text-muted-foreground">{t('pricing.renew')}:</span>
-            <span className="font-medium text-primary ml-1">
-              {pricing?.renewPrice ? `¥${pricing.renewPrice}` : '-'}
-            </span>
-          </span>
-          <span className="whitespace-nowrap">
-            <span className="text-muted-foreground">{t('pricing.premium')}:</span>
-            <span className="font-medium ml-1">{pricing?.isPremium ? t('pricing.yes') : t('pricing.no')}</span>
-          </span>
+          )}
           <Badge variant="default" className="text-xs">{t('pricing.registered')}</Badge>
         </div>
         
