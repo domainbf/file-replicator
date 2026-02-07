@@ -183,18 +183,22 @@ const DNS_PROVIDERS: Record<string, { name: string; website: string }> = {
   'alidns': { name: '阿里云DNS', website: 'https://www.aliyun.com/product/dns' },
   'hichina': { name: '万网DNS', website: 'https://wanwang.aliyun.com' },
   'aliyun': { name: '阿里云DNS', website: 'https://www.aliyun.com/product/dns' },
-  'taobao': { name: '阿里云DNS', website: 'https://www.aliyun.com/product/dns' },
+  'taobao': { name: '阿里巴巴', website: 'https://www.alibaba.com' },
+  'alibaba': { name: '阿里巴巴', website: 'https://www.alibaba.com' },
+  'alicdn': { name: '阿里云CDN', website: 'https://www.aliyun.com/product/cdn' },
   // 腾讯云
   'tencentdns': { name: '腾讯云DNS', website: 'https://cloud.tencent.com/product/dns' },
   'tencent': { name: '腾讯云DNS', website: 'https://cloud.tencent.com/product/dns' },
-  'qq.com': { name: '腾讯云DNS', website: 'https://cloud.tencent.com/product/dns' },
+  'qq.com': { name: '腾讯', website: 'https://www.qq.com' },
+  'weixin': { name: '腾讯/微信', website: 'https://www.wechat.com' },
   // 华为云
   'huaweicloud': { name: '华为云DNS', website: 'https://www.huaweicloud.com/product/dns.html' },
   'hwclouds': { name: '华为云DNS', website: 'https://www.huaweicloud.com/product/dns.html' },
+  'huawei': { name: '华为', website: 'https://www.huawei.com' },
   // 百度
   'baidubce': { name: '百度云DNS', website: 'https://cloud.baidu.com/product/dns.html' },
-  'baidu': { name: '百度DNS', website: 'https://www.baidu.com' },
-  'bdstatic': { name: '百度DNS', website: 'https://www.baidu.com' },
+  'baidu': { name: '百度', website: 'https://www.baidu.com' },
+  'bdstatic': { name: '百度', website: 'https://www.baidu.com' },
   // 易名中国
   'ename': { name: '易名中国', website: 'https://www.ename.com' },
   'ename.com': { name: '易名中国', website: 'https://www.ename.com' },
@@ -232,20 +236,48 @@ const DNS_PROVIDERS: Record<string, { name: string; website: string }> = {
   // 字节跳动
   'bytedance': { name: '字节跳动', website: 'https://www.volcengine.com' },
   'volcengine': { name: '火山引擎', website: 'https://www.volcengine.com' },
-  // 京东云
+  'byted': { name: '字节跳动', website: 'https://www.volcengine.com' },
+  // 京东云/京东
   'jdcloud': { name: '京东云', website: 'https://www.jdcloud.com' },
-  'jd.com': { name: '京东云', website: 'https://www.jdcloud.com' },
+  'jd.com': { name: '京东', website: 'https://www.jd.com' },
+  'jdcache': { name: '京东', website: 'https://www.jd.com' },
   // 网易
   'netease': { name: '网易', website: 'https://www.163.com' },
   '163.com': { name: '网易', website: 'https://www.163.com' },
+  'ntes': { name: '网易', website: 'https://www.163.com' },
   // 金山云
   'ksyun': { name: '金山云', website: 'https://www.ksyun.com' },
   // 七牛云
   'qiniu': { name: '七牛云', website: 'https://www.qiniu.com' },
+  'qbox': { name: '七牛云', website: 'https://www.qiniu.com' },
   // UCloud
   'ucloud': { name: 'UCloud', website: 'https://www.ucloud.cn' },
   // CloudXNS
   'cloudxns': { name: 'CloudXNS', website: 'https://www.cloudxns.net' },
+  // 小米
+  'xiaomi': { name: '小米', website: 'https://www.mi.com' },
+  'mi.com': { name: '小米', website: 'https://www.mi.com' },
+  // 美团
+  'meituan': { name: '美团', website: 'https://www.meituan.com' },
+  'dianping': { name: '美团', website: 'https://www.meituan.com' },
+  // 拼多多
+  'pinduoduo': { name: '拼多多', website: 'https://www.pinduoduo.com' },
+  'pdd': { name: '拼多多', website: 'https://www.pinduoduo.com' },
+  // 蚂蚁集团
+  'alipay': { name: '支付宝', website: 'https://www.alipay.com' },
+  'antfin': { name: '蚂蚁集团', website: 'https://www.antgroup.com' },
+  // 滴滴
+  'didichuxing': { name: '滴滴出行', website: 'https://www.didiglobal.com' },
+  'didiglobal': { name: '滴滴出行', website: 'https://www.didiglobal.com' },
+  // 哔哩哔哩
+  'bilibili': { name: '哔哩哔哩', website: 'https://www.bilibili.com' },
+  // 快手
+  'kuaishou': { name: '快手', website: 'https://www.kuaishou.com' },
+  // 知乎
+  'zhihu': { name: '知乎', website: 'https://www.zhihu.com' },
+  // 携程
+  'ctrip': { name: '携程', website: 'https://www.ctrip.com' },
+  'tripcdn': { name: '携程', website: 'https://www.ctrip.com' },
   // ==================== 其他国际提供商 ====================
   'he.net': { name: 'Hurricane Electric', website: 'https://dns.he.net' },
   'easydns': { name: 'easyDNS', website: 'https://easydns.com' },
