@@ -27,7 +27,7 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   useEffect(() => {
     if (initialDomain) {
@@ -227,14 +227,19 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
               ) : (
                 <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
               )}
-              <div>
+              <div className="flex-1">
                 <p className={`text-sm ${isAvailable ? 'text-success' : 'text-destructive'}`}>
                   {error}
                 </p>
                 {isAvailable && (
-                  <Badge variant="outline" className="mt-1.5 text-success border-success text-xs">
-                    {t('pricing.available')}
-                  </Badge>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <Badge variant="outline" className="text-success border-success text-xs">
+                      {t('pricing.available')}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {language === 'zh' ? '溢价: 未知' : 'Premium: Unknown'}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>

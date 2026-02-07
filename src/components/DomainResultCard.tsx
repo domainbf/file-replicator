@@ -4,12 +4,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  Info, Shield, Server, Copy, Check, ExternalLink, User, Globe, 
+  Info, Shield, Server, Copy, Check, ExternalLink, User, 
   Lock, Database
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/hooks/useLanguage';
 import ShareDialog from './ShareDialog';
+import DomainFavicon from './DomainFavicon';
+import SpecialDomainBadge from './SpecialDomainBadge';
 
 export interface WhoisData {
   domain: string;
@@ -137,18 +139,19 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
                   {pricing?.renewPrice ? `¥${pricing.renewPrice}` : '-'}
                 </span>
               </span>
-              {/* Premium indicator with badge */}
-              {pricing?.isPremium && (
-                <Badge variant="secondary" className="text-xs bg-warning/20 text-warning border-warning/30">
-                  {language === 'zh' ? '溢价' : 'Premium'}
-                </Badge>
-              )}
             </>
           ) : (
             <span className="text-xs text-muted-foreground/70">
               {language === 'zh' ? '价格获取失败！' : 'Price fetch failed!'}
             </span>
           )}
+          {/* Always show premium status */}
+          <span className="whitespace-nowrap">
+            <span className="text-muted-foreground">{language === 'zh' ? '溢价' : 'Premium'}:</span>
+            <span className={`font-medium ml-1 ${pricing?.isPremium ? 'text-warning' : 'text-muted-foreground'}`}>
+              {pricing?.isPremium ? (language === 'zh' ? '是' : 'Yes') : (language === 'zh' ? '否' : 'No')}
+            </span>
+          </span>
           <Badge variant="default" className="text-xs">{t('pricing.registered')}</Badge>
         </div>
         
@@ -162,9 +165,13 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
       {/* Main Card */}
       <Card>
         <CardContent className="pt-5 pb-5">
-          {/* Domain Name Header */}
-          <div className="mb-4">
-            <h2 className="text-xl font-bold uppercase tracking-wide">{data.domain}</h2>
+          {/* Domain Name Header with Favicon and Special Badge */}
+          <div className="mb-4 flex items-center gap-3">
+            <DomainFavicon domain={data.domain} size="lg" />
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-xl font-bold uppercase tracking-wide">{data.domain}</h2>
+              <SpecialDomainBadge domain={data.domain} />
+            </div>
           </div>
 
           <Tabs defaultValue="standard" className="w-full">

@@ -123,4 +123,46 @@
   .section-title {
     @apply flex items-center gap-2 text-sm font-semibold mb-3;
   }
+
+  /* Shimmering/glowing badge effect */
+  .shimmer-badge {
+    @apply relative overflow-hidden;
+    background: linear-gradient(135deg, hsl(45, 100%, 51%), hsl(30, 100%, 50%), hsl(45, 100%, 51%));
+    background-size: 200% 200%;
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  .shimmer-badge::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.4),
+      transparent
+    );
+    animation: shine 2s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  @keyframes shine {
+    0% {
+      left: -100%;
+    }
+    50%, 100% {
+      left: 100%;
+    }
+  }
 }

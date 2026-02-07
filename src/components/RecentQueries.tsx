@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Globe, Clock } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import DomainFavicon from './DomainFavicon';
 
 interface RecentQuery {
   domain: string;
@@ -91,6 +92,9 @@ const RecentQueries = ({ onSelectDomain, refreshTrigger }: RecentQueriesProps) =
     return null;
   }
 
+  const displayQueries = queries.slice(0, 6);
+  const remainingCount = queries.length - 6;
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -98,36 +102,32 @@ const RecentQueries = ({ onSelectDomain, refreshTrigger }: RecentQueriesProps) =
         <span>{language === 'zh' ? '最近查询' : 'Recent Queries'}</span>
       </div>
       
-      <div className="space-y-2">
-        {queries.slice(0, 5).map((query, index) => (
+      {/* Responsive grid: 2-3 columns based on screen width */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {displayQueries.map((query, index) => (
           <button
             key={`${query.domain}-${index}`}
             onClick={() => onSelectDomain(query.domain)}
-            className="w-full flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left group"
+            className="flex items-center gap-2 p-2.5 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left group"
           >
-            <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-              <Globe className="h-5 w-5 text-primary" />
-            </div>
+            <DomainFavicon domain={query.domain} size="sm" />
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm truncate">
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-xs truncate">
                   {query.domain}
                 </span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded border text-muted-foreground shrink-0">
-                  DOMAIN
-                </span>
               </div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                <span>{formatTime(query.timestamp)}</span>
+              <div className="text-[10px] text-muted-foreground">
+                {formatTime(query.timestamp)}
               </div>
             </div>
           </button>
         ))}
       </div>
       
-      {queries.length > 5 && (
+      {remainingCount > 0 && (
         <p className="text-xs text-muted-foreground text-center">
-          {language === 'zh' ? `还有 ${queries.length - 5} 条记录` : `${queries.length - 5} more`}
+          {language === 'zh' ? `还有 ${remainingCount} 条记录` : `${remainingCount} more`}
         </p>
       )}
     </div>
