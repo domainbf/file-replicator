@@ -70,9 +70,16 @@ const translations: Record<Language, Record<string, string>> = {
     // Data Source
     'source.title': '数据来源',
     'source.protocol': '协议',
-    'source.ianaId': 'IANA ID',
     'source.rawData': '原始数据',
     'source.copyJson': '复制JSON',
+    
+    // Share
+    'share.screenshot': '截图',
+    'share.share': '分享',
+    'share.saveImage': '保存图片',
+    'share.shareWith': '与他人分享结果',
+    'share.generateFailed': '截图生成失败',
+    'share.imageSaved': '图片已保存',
     
     // History & Favorites
     'history.title': '查询历史',
@@ -186,9 +193,16 @@ const translations: Record<Language, Record<string, string>> = {
     // Data Source
     'source.title': 'Data Source',
     'source.protocol': 'Protocol',
-    'source.ianaId': 'IANA ID',
     'source.rawData': 'Raw Data',
     'source.copyJson': 'Copy JSON',
+    
+    // Share
+    'share.screenshot': 'Screenshot',
+    'share.share': 'Share',
+    'share.saveImage': 'Save Image',
+    'share.shareWith': 'Share results with others',
+    'share.generateFailed': 'Failed to generate screenshot',
+    'share.imageSaved': 'Image saved',
     
     // History & Favorites
     'history.title': 'Query History',
