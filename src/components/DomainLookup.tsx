@@ -1,35 +1,8 @@
 import { useState } from 'react';
 import { AlertCircle, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import DomainSearch from './DomainSearch';
 import DomainResultCard, { WhoisData } from './DomainResultCard';
-
-// Mock lookup function - replace with actual API call when backend is connected
-const mockLookup = async (domain: string): Promise<WhoisData | null> => {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  
-  // Mock data for demonstration
-  const mockData: WhoisData = {
-    domain: domain.toLowerCase(),
-    registrar: 'Example Registrar, Inc.',
-    registrationDate: '2020-01-15T00:00:00Z',
-    expirationDate: '2025-01-15T00:00:00Z',
-    lastUpdated: '2024-06-01T00:00:00Z',
-    nameServers: [
-      'ns1.example.com',
-      'ns2.example.com',
-    ],
-    status: ['clientTransferProhibited', 'clientUpdateProhibited'],
-    registrant: {
-      organization: 'Privacy Protected',
-      country: 'US',
-    },
-    dnssec: false,
-    source: 'rdap',
-  };
-
-  return mockData;
-};
 
 const DomainLookup = () => {
   const [domain, setDomain] = useState('');
@@ -59,13 +32,40 @@ const DomainLookup = () => {
     setLoading(true);
 
     try {
-      const data = await mockLookup(domain.trim());
-      if (data) {
-        setResult(data);
+      const { data, error: fnError } = await supabase.functions.invoke('domain-lookup', {
+        body: { domain: domain.trim().toLowerCase() }
+      });
+
+      if (fnError) {
+        console.error('Edge function error:', fnError);
+        setError('查询服务暂时不可用，请稍后重试');
+        return;
+      }
+
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
+
+      if (data.primary) {
+        const whoisData: WhoisData = {
+          domain: data.primary.domain,
+          registrar: data.primary.registrar || 'N/A',
+          registrationDate: data.primary.registrationDate || 'N/A',
+          expirationDate: data.primary.expirationDate || 'N/A',
+          lastUpdated: data.primary.lastUpdated || 'N/A',
+          nameServers: data.primary.nameServers || [],
+          status: data.primary.status || [],
+          registrant: data.primary.registrant,
+          dnssec: data.primary.dnssec || false,
+          source: data.primary.source === 'rdap' ? 'rdap' : 'whois',
+        };
+        setResult(whoisData);
       } else {
         setError('未找到该域名的信息');
       }
     } catch (err) {
+      console.error('Lookup error:', err);
       setError('查询失败，请稍后重试');
     } finally {
       setLoading(false);
