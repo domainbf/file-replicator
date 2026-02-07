@@ -5,14 +5,143 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// RDAP Bootstrap URLs
+// ==================== 完整的域名状态码映射 ====================
+const STATUS_CODE_MAP: Record<string, string> = {
+  // ICANN通用核心状态码
+  'ok': '正常',
+  'active': '正常',
+  'registered': '已注册',
+  'connect': '已连接',
+  'connected': '已连接',
+  
+  // Hold状态
+  'clienthold': '客户端暂停',
+  'client hold': '客户端暂停',
+  'serverhold': '注册局暂停',
+  'server hold': '注册局暂停',
+  'hold': '暂停',
+  'inactive': '未激活',
+  'suspended': '已暂停',
+  
+  // Delete禁止
+  'clientdeleteprohibited': '客户端删除禁止',
+  'client delete prohibited': '客户端删除禁止',
+  'serverdeleteprohibited': '注册局删除禁止',
+  'server delete prohibited': '注册局删除禁止',
+  'deleteprohibited': '禁止删除',
+  
+  // Transfer禁止
+  'clienttransferprohibited': '客户端转移禁止',
+  'client transfer prohibited': '客户端转移禁止',
+  'servertransferprohibited': '注册局转移禁止',
+  'server transfer prohibited': '注册局转移禁止',
+  'transferprohibited': '禁止转移',
+  'registrarlock': '注册商锁定',
+  'registrylock': '注册局锁定',
+  'locked': '已锁定',
+  
+  // Renew禁止
+  'clientrenewprohibited': '客户端续费禁止',
+  'client renew prohibited': '客户端续费禁止',
+  'serverrenewprohibited': '注册局续费禁止',
+  'server renew prohibited': '注册局续费禁止',
+  'renewprohibited': '禁止续费',
+  
+  // Update禁止
+  'clientupdateprohibited': '客户端更新禁止',
+  'client update prohibited': '客户端更新禁止',
+  'serverupdateprohibited': '注册局更新禁止',
+  'server update prohibited': '注册局更新禁止',
+  'updateprohibited': '禁止修改',
+  
+  // 续费/过期相关
+  'autorenewperiod': '自动续费期',
+  'redemptionperiod': '赎回期',
+  'pendingrestore': '待恢复',
+  'pendingdelete': '待删除',
+  'graceperiod': '宽限期',
+  'addperiod': '注册宽限期',
+  'renewperiod': '续费宽限期',
+  'transferperiod': '转移宽限期',
+  'expired': '已过期',
+  
+  // 转移相关
+  'pendingtransfer': '转移中',
+  'pendingverification': '待验证',
+  'pendingupdate': '修改中',
+  
+  // 隐私保护
+  'privacy': '隐私保护',
+  'redacted': '信息隐藏',
+};
+
+// 注册商官网映射
+const REGISTRAR_WEBSITES: Record<string, string> = {
+  'godaddy': 'https://www.godaddy.com',
+  'namecheap': 'https://www.namecheap.com',
+  'cloudflare': 'https://www.cloudflare.com',
+  'google': 'https://domains.google',
+  'alibaba': 'https://wanwang.aliyun.com',
+  'west.cn': 'https://www.west.cn',
+  'xinnet': 'https://www.xinnet.com',
+  'ename': 'https://www.ename.com',
+  'dnspod': 'https://dnspod.cloud.tencent.com',
+  'tencent': 'https://cloud.tencent.com/product/domain',
+  'huawei': 'https://www.huaweicloud.com/product/domain.html',
+  'dynadot': 'https://www.dynadot.com',
+  'name.com': 'https://www.name.com',
+  'porkbun': 'https://porkbun.com',
+  'gandi': 'https://www.gandi.net',
+  'hover': 'https://www.hover.com',
+  'tucows': 'https://opensrs.com',
+  'epik': 'https://www.epik.com',
+  'sav': 'https://www.sav.com',
+  'namesilo': 'https://www.namesilo.com',
+  'networksolutions': 'https://www.networksolutions.com',
+  'register.com': 'https://www.register.com',
+  'ionos': 'https://www.ionos.com',
+  '1&1': 'https://www.ionos.com',
+  'bluehost': 'https://www.bluehost.com',
+  'hostgator': 'https://www.hostgator.com',
+  'dreamhost': 'https://www.dreamhost.com',
+  'markmonitor': 'https://www.markmonitor.com',
+  'csc': 'https://www.cscglobal.com',
+  'safenames': 'https://www.safenames.net',
+};
+
+// DNS服务商映射
+const DNS_PROVIDERS: Record<string, { name: string; website: string }> = {
+  'cloudflare': { name: 'Cloudflare', website: 'https://www.cloudflare.com' },
+  'awsdns': { name: 'AWS Route 53', website: 'https://aws.amazon.com/route53' },
+  'googledomains': { name: 'Google Domains', website: 'https://domains.google' },
+  'dnspod': { name: 'DNSPod', website: 'https://www.dnspod.cn' },
+  'alidns': { name: '阿里云DNS', website: 'https://www.aliyun.com/product/dns' },
+  'hichina': { name: '万网', website: 'https://wanwang.aliyun.com' },
+  'dnsv': { name: 'DNSV', website: 'https://www.dns.com' },
+  'nsone': { name: 'NS1', website: 'https://ns1.com' },
+  'dyn': { name: 'Dyn', website: 'https://dyn.com' },
+  'ultradns': { name: 'UltraDNS', website: 'https://www.ultradns.com' },
+  'godaddy': { name: 'GoDaddy DNS', website: 'https://www.godaddy.com' },
+  'namecheap': { name: 'Namecheap DNS', website: 'https://www.namecheap.com' },
+  'domaincontrol': { name: 'GoDaddy DNS', website: 'https://www.godaddy.com' },
+  'registrar-servers': { name: 'Namecheap DNS', website: 'https://www.namecheap.com' },
+  'worldnic': { name: 'Network Solutions', website: 'https://www.networksolutions.com' },
+};
+
+// RDAP Bootstrap URL
 const RDAP_BOOTSTRAP_URL = 'https://data.iana.org/rdap/dns.json';
+
+// Cache for RDAP bootstrap data
+let rdapBootstrapCache: Record<string, string> | null = null;
+let bootstrapCacheTime = 0;
+const CACHE_TTL = 3600000;
 
 interface RdapEntity {
   objectClassName?: string;
   roles?: string[];
   vcardArray?: any[];
   entities?: RdapEntity[];
+  publicIds?: Array<{ type: string; identifier: string }>;
 }
 
 interface RdapResponse {
@@ -22,15 +151,192 @@ interface RdapResponse {
   status?: string[];
   events?: Array<{ eventAction: string; eventDate: string }>;
   entities?: RdapEntity[];
-  nameservers?: Array<{ ldhName: string }>;
+  nameservers?: Array<{ ldhName: string; unicodeName?: string }>;
   secureDNS?: { delegationSigned?: boolean };
   links?: Array<{ rel: string; href: string }>;
 }
 
-// Cache for RDAP bootstrap data
-let rdapBootstrapCache: Record<string, string> | null = null;
-let bootstrapCacheTime = 0;
-const CACHE_TTL = 3600000; // 1 hour
+// 翻译域名状态
+function translateStatus(status: string): string {
+  const normalized = status.toLowerCase().replace(/[_\-\s]+/g, '').trim();
+  
+  if (STATUS_CODE_MAP[normalized]) {
+    return STATUS_CODE_MAP[normalized];
+  }
+  
+  const lowerStatus = status.toLowerCase().trim();
+  if (STATUS_CODE_MAP[lowerStatus]) {
+    return STATUS_CODE_MAP[lowerStatus];
+  }
+  
+  // 处理带URL的状态
+  const statusWithoutUrl = status.replace(/https?:\/\/[^\s]*/gi, '').trim();
+  const normalizedWithoutUrl = statusWithoutUrl.toLowerCase().replace(/[_\-\s]+/g, '');
+  if (STATUS_CODE_MAP[normalizedWithoutUrl]) {
+    return STATUS_CODE_MAP[normalizedWithoutUrl];
+  }
+  
+  // 模糊匹配关键词
+  const keywords: Record<string, string> = {
+    'prohibited': '禁止',
+    'hold': '暂停',
+    'lock': '锁定',
+    'pending': '待处理',
+    'transfer': '转移',
+    'delete': '删除',
+    'update': '修改',
+    'renew': '续费',
+    'active': '正常',
+    'redemption': '赎回期',
+    'expired': '已过期',
+    'suspended': '已暂停',
+  };
+  
+  for (const [key, value] of Object.entries(keywords)) {
+    if (normalized.includes(key)) {
+      return value;
+    }
+  }
+  
+  return status;
+}
+
+// 获取注册商官网
+function getRegistrarWebsite(registrar: string): string | null {
+  if (!registrar) return null;
+  
+  const lowerRegistrar = registrar.toLowerCase();
+  
+  for (const [key, url] of Object.entries(REGISTRAR_WEBSITES)) {
+    if (lowerRegistrar.includes(key)) {
+      return url;
+    }
+  }
+  
+  return null;
+}
+
+// 识别DNS服务商
+function identifyDnsProvider(nameservers: string[]): { name: string; website: string } | null {
+  if (!nameservers || nameservers.length === 0) return null;
+  
+  const nsLower = nameservers.map(ns => ns.toLowerCase()).join(' ');
+  
+  for (const [key, provider] of Object.entries(DNS_PROVIDERS)) {
+    if (nsLower.includes(key)) {
+      return provider;
+    }
+  }
+  
+  return null;
+}
+
+// 检测WHOIS隐私保护
+function detectPrivacyProtection(registrant: any, whoisText?: string): boolean {
+  if (!registrant) return false;
+  
+  const privacyKeywords = [
+    'privacy', 'protected', 'redacted', 'whoisguard', 'withheld',
+    'proxy', 'private', 'domains by proxy', 'contact privacy',
+    'identity protection', 'perfect privacy', 'whois privacy',
+  ];
+  
+  const checkValue = (value: string | undefined): boolean => {
+    if (!value) return false;
+    const lower = value.toLowerCase();
+    return privacyKeywords.some(kw => lower.includes(kw));
+  };
+  
+  return checkValue(registrant.name) || 
+         checkValue(registrant.organization) || 
+         checkValue(registrant.email);
+}
+
+// 格式化日期为中文格式
+function formatDateChinese(dateStr: string): string {
+  if (!dateStr || dateStr === 'N/A') return '';
+  
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}年${month}月${day}日`;
+  } catch {
+    return dateStr;
+  }
+}
+
+// 计算域名年龄标签
+function getAgeLabel(registrationDate: string): string | null {
+  if (!registrationDate) return null;
+  
+  try {
+    const regDate = new Date(registrationDate);
+    if (isNaN(regDate.getTime())) return null;
+    
+    const now = new Date();
+    const years = Math.floor((now.getTime() - regDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+    
+    if (years >= 30) return '创世古董';
+    if (years >= 20) return '古董域名';
+    if (years >= 15) return '老域名';
+    if (years >= 10) return '成熟域名';
+    if (years >= 5) return '中龄域名';
+    if (years >= 1) return '新域名';
+    return '新注册';
+  } catch {
+    return null;
+  }
+}
+
+// 计算更新时间标签
+function getUpdateLabel(status: string[]): string | null {
+  if (!status || status.length === 0) return null;
+  
+  const hasAllLocks = status.some(s => {
+    const lower = s.toLowerCase();
+    return lower.includes('clientdeleteprohibited') || lower.includes('client delete prohibited');
+  }) && status.some(s => {
+    const lower = s.toLowerCase();
+    return lower.includes('clienttransferprohibited') || lower.includes('client transfer prohibited');
+  }) && status.some(s => {
+    const lower = s.toLowerCase();
+    return lower.includes('clientupdateprohibited') || lower.includes('client update prohibited');
+  });
+  
+  if (hasAllLocks) return '全功能高密锁定';
+  
+  const hasTransferLock = status.some(s => {
+    const lower = s.toLowerCase();
+    return lower.includes('transferprohibited') || lower.includes('transfer prohibited');
+  });
+  
+  if (hasTransferLock) return '转移锁定';
+  
+  return null;
+}
+
+// 计算剩余天数
+function getRemainingDays(expirationDate: string): number | null {
+  if (!expirationDate) return null;
+  
+  try {
+    const expDate = new Date(expirationDate);
+    if (isNaN(expDate.getTime())) return null;
+    
+    const now = new Date();
+    const diffTime = expDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays;
+  } catch {
+    return null;
+  }
+}
 
 async function getRdapBootstrap(): Promise<Record<string, string>> {
   const now = Date.now();
@@ -112,18 +418,25 @@ function findRegistrant(entities: RdapEntity[]): Record<string, string> {
   return {};
 }
 
-function findRegistrar(entities: RdapEntity[]): string {
+function findRegistrar(entities: RdapEntity[]): { name: string; ianaId?: string } {
   for (const entity of entities) {
-    if (entity.roles?.includes('registrar') && entity.vcardArray) {
-      const vcard = parseVcard(entity.vcardArray);
-      return vcard.name || vcard.organization || '';
+    if (entity.roles?.includes('registrar')) {
+      let name = '';
+      if (entity.vcardArray) {
+        const vcard = parseVcard(entity.vcardArray);
+        name = vcard.name || vcard.organization || '';
+      }
+      
+      const ianaId = entity.publicIds?.find(p => p.type === 'IANA Registrar ID')?.identifier;
+      
+      return { name, ianaId };
     }
     if (entity.entities) {
       const nested = findRegistrar(entity.entities);
-      if (nested) return nested;
+      if (nested.name) return nested;
     }
   }
-  return '';
+  return { name: '' };
 }
 
 async function queryRdap(domain: string): Promise<any> {
@@ -132,12 +445,10 @@ async function queryRdap(domain: string): Promise<any> {
   
   let rdapServer = bootstrap[tld];
   
-  // Try common RDAP servers if not in bootstrap
   if (!rdapServer) {
     const commonServers = [
       'https://rdap.verisign.com/com/v1/',
       'https://rdap.org/',
-      'https://rdap.centralnic.com/com/',
     ];
     
     for (const server of commonServers) {
@@ -180,7 +491,7 @@ function parseRdapResponse(data: RdapResponse): any {
   const result: any = {
     domain: data.ldhName || data.unicodeName || '',
     status: data.status || [],
-    nameServers: (data.nameservers || []).map(ns => ns.ldhName),
+    nameServers: (data.nameservers || []).map(ns => ns.ldhName || ns.unicodeName).filter(Boolean),
     dnssec: data.secureDNS?.delegationSigned || false,
     source: 'rdap',
   };
@@ -200,55 +511,74 @@ function parseRdapResponse(data: RdapResponse): any {
   
   // Parse entities
   if (data.entities) {
-    result.registrar = findRegistrar(data.entities);
+    const registrarInfo = findRegistrar(data.entities);
+    result.registrar = registrarInfo.name;
+    result.registrarIanaId = registrarInfo.ianaId;
     result.registrant = findRegistrant(data.entities);
   }
+  
+  // Translate status codes
+  result.statusTranslated = result.status.map((s: string) => translateStatus(s));
+  
+  // Get registrar website
+  result.registrarWebsite = getRegistrarWebsite(result.registrar);
+  
+  // Identify DNS provider
+  result.dnsProvider = identifyDnsProvider(result.nameServers);
+  
+  // Detect privacy protection
+  result.privacyProtection = detectPrivacyProtection(result.registrant);
+  
+  // Calculate age label
+  result.ageLabel = getAgeLabel(result.registrationDate);
+  
+  // Calculate update label
+  result.updateLabel = getUpdateLabel(result.status);
+  
+  // Calculate remaining days
+  result.remainingDays = getRemainingDays(result.expirationDate);
+  
+  // Format dates
+  result.registrationDateFormatted = formatDateChinese(result.registrationDate);
+  result.expirationDateFormatted = formatDateChinese(result.expirationDate);
+  result.lastUpdatedFormatted = formatDateChinese(result.lastUpdated);
   
   return result;
 }
 
-// Fallback WHOIS parsing using public WHOIS API
-async function queryWhoisFallback(domain: string): Promise<any> {
-  console.log(`Trying WHOIS fallback for ${domain}`);
-  
-  // Use a public WHOIS API as fallback
-  const whoisApis = [
-    `https://www.whoisxmlapi.com/whoisserver/WhoisService?domainName=${domain}&outputFormat=JSON&apiKey=at_demo`,
-  ];
-  
-  for (const apiUrl of whoisApis) {
-    try {
-      const response = await fetch(apiUrl);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.WhoisRecord) {
-          return {
-            domain: domain,
-            registrar: data.WhoisRecord.registrarName || 'N/A',
-            registrationDate: data.WhoisRecord.createdDate || 'N/A',
-            expirationDate: data.WhoisRecord.expiresDate || 'N/A',
-            lastUpdated: data.WhoisRecord.updatedDate || 'N/A',
-            nameServers: data.WhoisRecord.nameServers?.hostNames || [],
-            status: data.WhoisRecord.status ? [data.WhoisRecord.status] : [],
-            registrant: {
-              organization: data.WhoisRecord.registrant?.organization,
-              country: data.WhoisRecord.registrant?.country,
-            },
-            dnssec: false,
-            source: 'whois',
-          };
-        }
+// Query pricing API
+async function queryPricing(domain: string): Promise<any> {
+  try {
+    const tld = getTld(domain);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(`https://api.tian.hu/domain/price?tld=${tld}`, {
+      signal: controller.signal,
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'DomainLookup/1.0'
       }
-    } catch (e) {
-      console.error('WHOIS API error:', e);
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        registerPrice: data.register_price || data.registerPrice,
+        renewPrice: data.renew_price || data.renewPrice,
+        isPremium: data.is_premium || data.isPremium || false,
+      };
     }
+  } catch (error) {
+    console.log('Pricing API failed:', error);
   }
   
-  throw new Error('No WHOIS data available');
+  return null;
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -263,11 +593,9 @@ serve(async (req) => {
       );
     }
     
-    // Normalize domain
     const normalizedDomain = domain.toLowerCase().trim();
     
-    // Validate domain format
-    const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$/;
+    const domainRegex = /^[a-zA-Z0-9\u4e00-\u9fa5][a-zA-Z0-9\u4e00-\u9fa5-]{0,61}[a-zA-Z0-9\u4e00-\u9fa5]?\.[a-zA-Z\u4e00-\u9fa5]{2,}$/;
     if (!domainRegex.test(normalizedDomain)) {
       return new Response(
         JSON.stringify({ error: '域名格式无效' }),
@@ -277,30 +605,31 @@ serve(async (req) => {
     
     console.log(`Looking up domain: ${normalizedDomain}`);
     
-    let result;
+    // Query RDAP and pricing in parallel
+    const [rdapResult, pricingResult] = await Promise.allSettled([
+      (async () => {
+        const rdapData = await queryRdap(normalizedDomain);
+        return parseRdapResponse(rdapData);
+      })(),
+      queryPricing(normalizedDomain)
+    ]);
     
-    try {
-      // Try RDAP first
-      const rdapData = await queryRdap(normalizedDomain);
-      result = {
-        primary: parseRdapResponse(rdapData),
-        rawData: rdapData,
-      };
-      console.log('RDAP query successful');
-    } catch (rdapError: any) {
-      console.log(`RDAP failed: ${rdapError.message}`);
+    if (rdapResult.status === 'rejected') {
+      const error = rdapResult.reason;
+      console.log(`RDAP failed: ${error.message}`);
       
-      if (rdapError.message === 'domain_not_found') {
+      if (error.message === 'domain_not_found') {
         return new Response(
           JSON.stringify({ 
             error: `域名 ${normalizedDomain} 未注册或不存在`,
-            errorType: 'domain_not_found'
+            errorType: 'domain_not_found',
+            isAvailable: true,
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
-      if (rdapError.message.startsWith('unsupported_tld')) {
+      if (error.message.startsWith('unsupported_tld')) {
         return new Response(
           JSON.stringify({ 
             error: `不支持查询 .${getTld(normalizedDomain)} 域名`,
@@ -310,24 +639,22 @@ serve(async (req) => {
         );
       }
       
-      // Try WHOIS fallback
-      try {
-        const whoisData = await queryWhoisFallback(normalizedDomain);
-        result = {
-          primary: whoisData,
-        };
-        console.log('WHOIS fallback successful');
-      } catch (whoisError) {
-        console.error('Both RDAP and WHOIS failed');
-        return new Response(
-          JSON.stringify({ 
-            error: '无法获取域名信息，请稍后重试',
-            errorType: 'lookup_failed'
-          }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+      return new Response(
+        JSON.stringify({ 
+          error: '无法获取域名信息，请稍后重试',
+          errorType: 'lookup_failed'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+    
+    const result = {
+      primary: rdapResult.value,
+      pricing: pricingResult.status === 'fulfilled' ? pricingResult.value : null,
+      isRegistered: true,
+    };
+    
+    console.log('RDAP query successful');
     
     return new Response(
       JSON.stringify(result),

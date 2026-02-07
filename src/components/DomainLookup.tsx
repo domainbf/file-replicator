@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { AlertCircle, Loader2, Star } from 'lucide-react';
+import { AlertCircle, Loader2, Star, CheckCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import DomainSearch from './DomainSearch';
-import DomainResultCard, { WhoisData } from './DomainResultCard';
+import DomainResultCard, { WhoisData, PricingData } from './DomainResultCard';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 interface DomainLookupProps {
   initialDomain?: string;
@@ -16,7 +17,9 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded }: DomainLookupProps) => 
   const [domain, setDomain] = useState(initialDomain || '');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<WhoisData | null>(null);
+  const [pricing, setPricing] = useState<PricingData | null>(null);
   const [error, setError] = useState<string>('');
+  const [isAvailable, setIsAvailable] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const { user } = useAuth();
@@ -25,13 +28,12 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded }: DomainLookupProps) => 
   useEffect(() => {
     if (initialDomain && initialDomain !== domain) {
       setDomain(initialDomain);
-      // Auto-search when domain is selected from history/favorites
       handleLookupWithDomain(initialDomain);
     }
   }, [initialDomain]);
 
   const validateDomain = (input: string): boolean => {
-    const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$/;
+    const domainRegex = /^[a-zA-Z0-9\u4e00-\u9fa5][a-zA-Z0-9\u4e00-\u9fa5-]{0,61}[a-zA-Z0-9\u4e00-\u9fa5]?\.[a-zA-Z\u4e00-\u9fa5]{2,}$/;
     return domainRegex.test(input.trim());
   };
 
@@ -62,7 +64,9 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded }: DomainLookupProps) => 
   const handleLookupWithDomain = async (domainToLookup: string) => {
     setError('');
     setResult(null);
+    setPricing(null);
     setIsFavorite(false);
+    setIsAvailable(false);
 
     if (!domainToLookup.trim()) {
       setError('请输入要查询的域名');
@@ -88,6 +92,9 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded }: DomainLookupProps) => 
       }
 
       if (data.error) {
+        if (data.isAvailable) {
+          setIsAvailable(true);
+        }
         setError(data.error);
         return;
       }
@@ -101,13 +108,28 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded }: DomainLookupProps) => 
           lastUpdated: data.primary.lastUpdated || 'N/A',
           nameServers: data.primary.nameServers || [],
           status: data.primary.status || [],
+          statusTranslated: data.primary.statusTranslated || [],
           registrant: data.primary.registrant,
           dnssec: data.primary.dnssec || false,
           source: data.primary.source === 'rdap' ? 'rdap' : 'whois',
+          // Enhanced fields
+          registrarWebsite: data.primary.registrarWebsite,
+          registrarIanaId: data.primary.registrarIanaId,
+          dnsProvider: data.primary.dnsProvider,
+          privacyProtection: data.primary.privacyProtection,
+          ageLabel: data.primary.ageLabel,
+          updateLabel: data.primary.updateLabel,
+          remainingDays: data.primary.remainingDays,
+          registrationDateFormatted: data.primary.registrationDateFormatted,
+          expirationDateFormatted: data.primary.expirationDateFormatted,
+          lastUpdatedFormatted: data.primary.lastUpdatedFormatted,
         };
         setResult(whoisData);
         
-        // Save to history and check favorite status
+        if (data.pricing) {
+          setPricing(data.pricing);
+        }
+        
         await saveToHistory(domainToLookup.trim(), whoisData);
         await checkIsFavorite(domainToLookup.trim());
       } else {
@@ -135,7 +157,6 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded }: DomainLookupProps) => 
 
     try {
       if (isFavorite) {
-        // Remove from favorites
         await supabase
           .from('favorites')
           .delete()
@@ -145,7 +166,6 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded }: DomainLookupProps) => 
         setIsFavorite(false);
         toast({ description: '已从收藏中移除' });
       } else {
-        // Add to favorites
         await supabase.from('favorites').insert({
           user_id: user.id,
           domain_name: result.domain.toLowerCase(),
@@ -175,9 +195,26 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded }: DomainLookupProps) => 
       />
 
       {error && (
-        <div className="flex items-start gap-3 p-4 border border-destructive/20 rounded-lg bg-destructive/5">
-          <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-destructive">{error}</p>
+        <div className={`flex items-start gap-3 p-4 border rounded-lg ${
+          isAvailable 
+            ? 'border-success/20 bg-success/5' 
+            : 'border-destructive/20 bg-destructive/5'
+        }`}>
+          {isAvailable ? (
+            <CheckCircle className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
+          ) : (
+            <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+          )}
+          <div>
+            <p className={`text-sm ${isAvailable ? 'text-success' : 'text-destructive'}`}>
+              {error}
+            </p>
+            {isAvailable && (
+              <Badge variant="outline" className="mt-2 text-success border-success">
+                可注册
+              </Badge>
+            )}
+          </div>
         </div>
       )}
 
@@ -203,7 +240,7 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded }: DomainLookupProps) => 
               </Button>
             </div>
           )}
-          <DomainResultCard data={result} />
+          <DomainResultCard data={result} pricing={pricing} />
         </div>
       )}
     </div>
