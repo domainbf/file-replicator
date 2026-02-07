@@ -8,6 +8,7 @@ import DomainSearch from './DomainSearch';
 import DomainResultCard, { WhoisData, PricingData } from './DomainResultCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { addRecentQuery } from './RecentQueries';
 
 interface DomainLookupProps {
   initialDomain?: string;
@@ -141,6 +142,9 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
         }
         
         onDomainQueried?.(domainToLookup.trim().toLowerCase());
+        
+        // Add to recent queries (localStorage)
+        addRecentQuery(domainToLookup.trim());
         
         await saveToHistory(domainToLookup.trim(), whoisData);
         await checkIsFavorite(domainToLookup.trim());

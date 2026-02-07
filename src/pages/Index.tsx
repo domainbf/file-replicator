@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import DomainLookup from '@/components/DomainLookup';
 import QueryHistory from '@/components/QueryHistory';
 import Favorites from '@/components/Favorites';
+import RecentQueries from '@/components/RecentQueries';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Sun, Moon, Languages, User, LogOut } from 'lucide-react';
@@ -125,6 +126,13 @@ const Index = ({ initialDomain: propDomain }: IndexProps) => {
               onFavoriteAdded={handleFavoriteAdded}
               onDomainQueried={handleDomainQueried}
             />
+            
+            {/* Recent Queries - Show for non-logged in users */}
+            {!user && (
+              <div className="mt-6">
+                <RecentQueries onSelectDomain={handleSelectDomain} />
+              </div>
+            )}
           </div>
 
           {/* Sidebar - Only show when logged in */}
