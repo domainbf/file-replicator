@@ -173,14 +173,12 @@ const DomainResultCard = ({ data, pricing, pricingLoading }: DomainResultCardPro
         <CardContent className="pt-5 pb-5">
           {/* Domain Name Header with Favicon and Special Badge */}
           <div className="mb-4 flex items-center gap-3 relative">
-            <DomainFavicon domain={data.domain} size="lg" />
+            <DomainFavicon domain={data.domain} size="md" />
             <div className="flex-1 min-w-0">
               <h2 className="text-xl font-bold uppercase tracking-wide">{data.domain}</h2>
             </div>
-            {/* Special badge fixed to the right */}
-            <div className="absolute -top-2 -right-2">
-              <SpecialDomainBadge domain={data.domain} position="fixed-right" />
-            </div>
+            {/* Special badge fixed to the right - horizontal layout */}
+            <SpecialDomainBadge domain={data.domain} position="fixed-right" />
           </div>
 
           <Tabs defaultValue="standard" className="w-full">

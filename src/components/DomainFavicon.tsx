@@ -11,10 +11,11 @@ const DomainFavicon = ({ domain, size = 'md', className = '' }: DomainFaviconPro
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Smaller icon sizes for more compact display
   const sizeMap = {
-    sm: { container: 'h-6 w-6', icon: 'h-3 w-3', img: 16 },
-    md: { container: 'h-10 w-10', icon: 'h-5 w-5', img: 32 },
-    lg: { container: 'h-12 w-12', icon: 'h-6 w-6', img: 48 },
+    sm: { container: 'h-5 w-5', icon: 'h-2.5 w-2.5', img: 16 },
+    md: { container: 'h-8 w-8', icon: 'h-4 w-4', img: 24 },
+    lg: { container: 'h-10 w-10', icon: 'h-5 w-5', img: 32 },
   };
 
   const { container, icon, img } = sizeMap[size];
