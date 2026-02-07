@@ -208,42 +208,42 @@ const ShareDialog = ({ data, pricing }: ShareDialogProps) => {
         <ShareCard ref={cardRef} data={data} pricing={pricing} isDark={isDarkMode} siteUrl={siteUrl} />
       </div>
 
-      {/* Screenshot Dialog */}
+      {/* Screenshot Dialog - Compact */}
       <Dialog open={screenshotOpen} onOpenChange={setScreenshotOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader className="relative">
-            <DialogTitle className="flex items-center gap-2">
+        <DialogContent className="max-w-sm p-4">
+          <DialogHeader className="relative pb-2">
+            <DialogTitle className="flex items-center gap-2 text-sm">
               <Camera className="h-4 w-4" />
-              {language === 'zh' ? '截图' : 'Screenshot'}
+              {language === 'zh' ? '截图预览' : 'Screenshot'}
             </DialogTitle>
             <Button
               variant="ghost"
               size="icon"
-              className="absolute right-0 top-0 h-8 w-8 rounded-full hover:bg-muted"
+              className="absolute right-0 top-0 h-7 w-7 rounded-full hover:bg-muted"
               onClick={() => setScreenshotOpen(false)}
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5" />
             </Button>
           </DialogHeader>
           
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-3">
             {generating ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : imageUrl ? (
               <>
-                <div className="border rounded-lg overflow-hidden shadow-sm max-w-full">
-                  <img src={imageUrl} alt="Screenshot" className="max-w-full h-auto" />
+                <div className="border rounded-lg overflow-hidden shadow-sm w-full max-h-[50vh] overflow-y-auto">
+                  <img src={imageUrl} alt="Screenshot" className="w-full h-auto" />
                 </div>
                 <div className="flex gap-2 w-full">
-                  <Button onClick={downloadImage} variant="outline" className="flex-1 gap-2">
-                    <Download className="h-4 w-4" />
+                  <Button onClick={downloadImage} variant="outline" size="sm" className="flex-1 gap-1.5 h-8 text-xs">
+                    <Download className="h-3.5 w-3.5" />
                     {language === 'zh' ? '下载' : 'Download'}
                   </Button>
-                  <Button onClick={saveToAlbum} className="flex-1 gap-2">
-                    <Camera className="h-4 w-4" />
-                    {language === 'zh' ? '保存到相册' : 'Save to Album'}
+                  <Button onClick={saveToAlbum} size="sm" className="flex-1 gap-1.5 h-8 text-xs">
+                    <Camera className="h-3.5 w-3.5" />
+                    {language === 'zh' ? '保存' : 'Save'}
                   </Button>
                 </div>
               </>
