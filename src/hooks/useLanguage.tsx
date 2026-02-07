@@ -131,6 +131,7 @@ const translations: Record<Language, Record<string, string>> = {
     'misc.copyFailed': '复制失败',
     'misc.noData': '暂无数据',
     'misc.unknown': '未知',
+    'misc.loading': '正在查询中...',
   },
   en: {
     // Header
@@ -254,6 +255,7 @@ const translations: Record<Language, Record<string, string>> = {
     'misc.copyFailed': 'Copy failed',
     'misc.noData': 'No data available',
     'misc.unknown': 'Unknown',
+    'misc.loading': 'Searching...',
   },
 };
 

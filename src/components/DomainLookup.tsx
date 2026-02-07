@@ -201,6 +201,9 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
     }
   };
 
+  // Reserve space for results to prevent layout shift
+  const showResultArea = loading || result || error;
+
   return (
     <div className="w-full space-y-4">
       <DomainSearch
@@ -210,53 +213,61 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
         loading={loading}
       />
 
-      {error && (
-        <div className={`flex items-start gap-3 p-3 border rounded-lg ${
-          isAvailable 
-            ? 'border-success/20 bg-success/5' 
-            : 'border-destructive/20 bg-destructive/5'
-        }`}>
-          {isAvailable ? (
-            <CheckCircle className="h-4 w-4 text-success flex-shrink-0 mt-0.5" />
-          ) : (
-            <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
-          )}
-          <div>
-            <p className={`text-sm ${isAvailable ? 'text-success' : 'text-destructive'}`}>
-              {error}
-            </p>
-            {isAvailable && (
-              <Badge variant="outline" className="mt-1.5 text-success border-success text-xs">
-                {t('pricing.available')}
-              </Badge>
-            )}
-          </div>
-        </div>
-      )}
-
-      {loading && (
-        <div className="flex items-center justify-center py-10 min-h-[200px]">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      )}
-
-      {result && !loading && (
-        <div className="space-y-3 animate-in fade-in-0 duration-200">
-          {user && (
-            <div className="flex justify-end">
-              <Button
-                variant={isFavorite ? "default" : "outline"}
-                size="sm"
-                onClick={toggleFavorite}
-                disabled={favoriteLoading}
-                className="gap-1.5 h-8 text-xs"
-              >
-                <Star className={`h-3.5 w-3.5 ${isFavorite ? 'fill-current' : ''}`} />
-                {isFavorite ? t('favorites.added') : t('favorites.add')}
-              </Button>
+      {/* Fixed height container to prevent layout shift */}
+      {showResultArea && (
+        <div className="min-h-[300px]">
+          {error && !loading && (
+            <div className={`flex items-start gap-3 p-3 border rounded-lg animate-in fade-in-0 duration-300 ${
+              isAvailable 
+                ? 'border-success/20 bg-success/5' 
+                : 'border-destructive/20 bg-destructive/5'
+            }`}>
+              {isAvailable ? (
+                <CheckCircle className="h-4 w-4 text-success flex-shrink-0 mt-0.5" />
+              ) : (
+                <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+              )}
+              <div>
+                <p className={`text-sm ${isAvailable ? 'text-success' : 'text-destructive'}`}>
+                  {error}
+                </p>
+                {isAvailable && (
+                  <Badge variant="outline" className="mt-1.5 text-success border-success text-xs">
+                    {t('pricing.available')}
+                  </Badge>
+                )}
+              </div>
             </div>
           )}
-          <DomainResultCard data={result} pricing={pricing} />
+
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
+              <p className="text-sm text-muted-foreground">
+                {t('misc.loading')}
+              </p>
+            </div>
+          )}
+
+          {result && !loading && (
+            <div className="space-y-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+              {user && (
+                <div className="flex justify-end">
+                  <Button
+                    variant={isFavorite ? "default" : "outline"}
+                    size="sm"
+                    onClick={toggleFavorite}
+                    disabled={favoriteLoading}
+                    className="gap-1.5 h-8 text-xs"
+                  >
+                    <Star className={`h-3.5 w-3.5 ${isFavorite ? 'fill-current' : ''}`} />
+                    {isFavorite ? t('favorites.added') : t('favorites.add')}
+                  </Button>
+                </div>
+              )}
+              <DomainResultCard data={result} pricing={pricing} />
+            </div>
+          )}
         </div>
       )}
     </div>
