@@ -26,16 +26,17 @@ const SpecialDomainBadge = ({ domain, position = 'inline' }: SpecialDomainBadgeP
     return null;
   }
 
+  // Horizontal badge with inline text (not vertical)
   if (position === 'fixed-right') {
     return (
-      <span className="shimmer-badge absolute -top-2 -right-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold text-white shadow-lg z-10">
+      <span className="shimmer-badge absolute -top-1 -right-1 inline-flex flex-row items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold text-white shadow-lg z-10">
         不讲•李
       </span>
     );
   }
 
   return (
-    <span className="shimmer-badge inline-flex items-center px-2 py-0.5 rounded text-xs font-bold text-white shadow-lg">
+    <span className="shimmer-badge inline-flex flex-row items-center whitespace-nowrap px-2 py-0.5 rounded text-xs font-bold text-white shadow-lg">
       不讲•李
     </span>
   );
