@@ -137,10 +137,12 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
                   {pricing?.renewPrice ? `¥${pricing.renewPrice}` : '-'}
                 </span>
               </span>
-              <span className="whitespace-nowrap">
-                <span className="text-muted-foreground">{t('pricing.premium')}:</span>
-                <span className="font-medium ml-1">{pricing?.isPremium ? t('pricing.yes') : t('pricing.no')}</span>
-              </span>
+              {/* Premium indicator with badge */}
+              {pricing?.isPremium && (
+                <Badge variant="secondary" className="text-xs bg-warning/20 text-warning border-warning/30">
+                  {language === 'zh' ? '溢价' : 'Premium'}
+                </Badge>
+              )}
             </>
           ) : (
             <span className="text-xs text-muted-foreground/70">
