@@ -16,6 +16,29 @@ let whoisServerCache: Record<string, string> = {};
 let whoisCacheTime = 0;
 const WHOIS_CACHE_TTL = 3600000; // 1 hour
 
+// 已知不可用/超慢的 WHOIS 服务器 - 跳过这些直接用 HTTP 兜底
+const SLOW_WHOIS_SERVERS = new Set([
+  'whois.pnina.ps',    // .ps - 经常连接被拒绝
+  'whois.nic.ps',
+  'whois.nic.mm',      // .mm - 缅甸，超慢
+  'whois.nic.ir',      // .ir - 伊朗，不稳定
+  'whois.nic.kp',      // .kp - 朝鲜，不可达
+  'whois.nic.cu',      // .cu - 古巴，不稳定
+  'whois.nic.sy',      // .sy - 叙利亚，不稳定
+]);
+
+// 快速 WHOIS 服务器 (响应通常 <2s)
+const FAST_WHOIS_SERVERS = new Set([
+  'whois.verisign-grs.com',
+  'whois.nic.io',
+  'whois.nic.co',
+  'whois.nic.ai',
+  'whois.nic.me',
+  'whois.pir.org',
+  'whois.nic.google',
+  'whois.cloudflare.com',
+]);
+
 // ==================== 完整的域名状态码映射 (支持多语言) ====================
 const STATUS_CODE_MAP: Record<string, string> = {
   // ICANN通用核心状态码
@@ -1138,11 +1161,20 @@ function isCcTld(tld: string): boolean {
   return tld.length === 2 && /^[a-z]{2}$/.test(tld.toLowerCase());
 }
 
-// 通过 TCP 端口 43 查询 WHOIS - 增强版
-async function queryWhoisTcp(domain: string, server: string, timeout = 15000, queryFormat?: string): Promise<string | null> {
+// 通过 TCP 端口 43 查询 WHOIS - 速度优化版
+async function queryWhoisTcp(domain: string, server: string, timeout = 8000, queryFormat?: string): Promise<string | null> {
+  // 跳过已知超慢/不可用的服务器
+  if (SLOW_WHOIS_SERVERS.has(server)) {
+    console.log(`Skipping slow/unavailable WHOIS server: ${server}`);
+    return null;
+  }
+  
+  // 快速服务器使用更短超时
+  const effectiveTimeout = FAST_WHOIS_SERVERS.has(server) ? 5000 : timeout;
+  
   try {
     const query = queryFormat ? queryFormat.replace('%s', domain) : domain;
-    console.log(`Querying WHOIS via TCP: ${server}:43 for ${domain} (query: "${query}")`);
+    console.log(`Querying WHOIS via TCP: ${server}:43 for ${domain} (timeout: ${effectiveTimeout}ms)`);
     
     // 使用 Promise.race 实现超时
     const connectPromise = Deno.connect({
@@ -1151,7 +1183,7 @@ async function queryWhoisTcp(domain: string, server: string, timeout = 15000, qu
     });
     
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Connection timeout')), timeout);
+      setTimeout(() => reject(new Error('Connection timeout')), effectiveTimeout);
     });
     
     let conn: Deno.Conn;
@@ -1162,30 +1194,32 @@ async function queryWhoisTcp(domain: string, server: string, timeout = 15000, qu
       return null;
     }
     
-    // 设置读取超时
+    // 设置读取超时 (比连接超时稍长)
     const readTimeoutId = setTimeout(() => {
       try { conn.close(); } catch {}
-    }, timeout);
+    }, effectiveTimeout + 2000);
     
     // 发送查询
     const encoder = new TextEncoder();
     const fullQuery = `${query}\r\n`;
     await conn.write(encoder.encode(fullQuery));
     
-    // 读取响应
+    // 读取响应 - 使用更大的缓冲区减少读取次数
     const decoder = new TextDecoder('utf-8', { fatal: false });
     const chunks: string[] = [];
-    const buffer = new Uint8Array(8192);
+    const buffer = new Uint8Array(16384); // 16KB 缓冲区
     
     try {
       while (true) {
         const bytesRead = await conn.read(buffer);
         if (bytesRead === null) break;
         chunks.push(decoder.decode(buffer.subarray(0, bytesRead), { stream: true }));
+        // 如果已经获取足够数据(>10KB)，提前退出
+        const totalLen = chunks.reduce((a, b) => a + b.length, 0);
+        if (totalLen > 10000) break;
       }
     } catch (e) {
       // 连接关闭或读取完成
-      console.log(`WHOIS TCP read completed or connection closed`);
     }
     
     clearTimeout(readTimeoutId);
@@ -1193,9 +1227,7 @@ async function queryWhoisTcp(domain: string, server: string, timeout = 15000, qu
     
     const response = chunks.join('');
     if (response.length > 0) {
-      console.log(`WHOIS TCP response received: ${response.length} bytes from ${server}`);
-      // 打印响应前200字符用于调试
-      console.log(`WHOIS response preview: ${response.substring(0, 200).replace(/\n/g, '\\n')}`);
+      console.log(`WHOIS TCP response: ${response.length} bytes from ${server}`);
       return response;
     }
     
@@ -1206,24 +1238,23 @@ async function queryWhoisTcp(domain: string, server: string, timeout = 15000, qu
   }
 }
 
-// 尝试多种查询格式
+// 尝试多种查询格式 - 速度优化版
 async function queryWhoisWithFormats(domain: string, server: string, tld: string): Promise<string | null> {
   const formats = CCTLD_QUERY_FORMATS[tld] || ['%s'];
   
-  for (const format of formats) {
-    const response = await queryWhoisTcp(domain, server, 15000, format);
-    if (response && response.length > 50) {
-      // 检查是否是有效响应（不是错误消息）
-      const lowerResponse = response.toLowerCase();
-      if (!lowerResponse.includes('error') && 
-          !lowerResponse.includes('invalid') &&
-          !lowerResponse.includes('not found') &&
-          !lowerResponse.includes('no match') &&
-          !lowerResponse.includes('no entries found')) {
-        return response;
-      }
-      // 即使是 "not found" 也返回，可能是域名未注册
-      return response;
+  // 只尝试第一种格式，减少等待时间
+  const format = formats[0];
+  const response = await queryWhoisTcp(domain, server, 8000, format);
+  
+  if (response && response.length > 50) {
+    return response;
+  }
+  
+  // 如果第一种格式失败且有其他格式，快速尝试
+  if (formats.length > 1 && !response) {
+    const response2 = await queryWhoisTcp(domain, server, 5000, formats[1]);
+    if (response2 && response2.length > 50) {
+      return response2;
     }
   }
   
@@ -2370,6 +2401,85 @@ async function queryPricing(domain: string): Promise<any> {
   }
 }
 
+// 智能查询策略：RDAP 和 WHOIS 竞速查询
+async function smartDomainQuery(domain: string, tld: string): Promise<{ data: any; source: string } | null> {
+  const isCctld = isCcTld(tld);
+  
+  // 对于 ccTLD，RDAP 支持不稳定，同时启动两个查询
+  if (isCctld) {
+    console.log(`ccTLD detected (.${tld}), using parallel query strategy`);
+    
+    // 同时启动 RDAP 和 WHOIS 查询
+    const rdapPromise = queryRdap(domain).then(data => ({ type: 'rdap', data })).catch(() => null);
+    const whoisPromise = queryWhois(domain).then(data => data ? { type: 'whois', data } : null).catch(() => null);
+    
+    // 使用 Promise.race 但带超时
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 10000));
+    
+    try {
+      // 等待第一个成功的结果
+      const results = await Promise.all([
+        Promise.race([rdapPromise, timeout]),
+        Promise.race([whoisPromise, timeout])
+      ]);
+      
+      // 优先使用 RDAP 结果（更结构化）
+      const rdapResult = results[0];
+      const whoisResult = results[1];
+      
+      if (rdapResult && rdapResult.data) {
+        const parsed = parseRdapResponse(rdapResult.data, rdapResult.data);
+        if (parsed.registrar || parsed.registrationDate || parsed.nameServers?.length > 0) {
+          console.log('Using RDAP result (parallel query)');
+          return { data: parsed, source: 'rdap' };
+        }
+      }
+      
+      if (whoisResult && whoisResult.data) {
+        if (whoisResult.data.registrar || whoisResult.data.registrationDate || whoisResult.data.nameServers?.length > 0) {
+          console.log('Using WHOIS result (parallel query)');
+          return { data: whoisResult.data, source: 'whois' };
+        }
+      }
+      
+      // 检查是否域名不存在
+      if (rdapResult?.data === null && whoisResult?.data?.domainNotFound) {
+        return null; // 域名未注册
+      }
+    } catch (e) {
+      console.log('Parallel query failed:', e);
+    }
+    
+    return null;
+  }
+  
+  // 对于 gTLD，RDAP 优先
+  try {
+    console.log(`Attempting RDAP query for ${domain}`);
+    const rdapData = await queryRdap(domain);
+    const parsed = parseRdapResponse(rdapData, rdapData);
+    console.log('RDAP query successful');
+    return { data: parsed, source: 'rdap' };
+  } catch (rdapError: any) {
+    console.log(`RDAP failed: ${rdapError.message}`);
+    
+    if (rdapError.message === 'domain_not_found') {
+      return null; // 域名未注册
+    }
+    
+    // RDAP 失败，尝试 WHOIS
+    console.log(`Falling back to WHOIS for .${tld}`);
+    const whoisData = await queryWhois(domain);
+    
+    if (whoisData && (whoisData.registrar || whoisData.registrationDate || whoisData.nameServers?.length > 0)) {
+      console.log('WHOIS fallback successful');
+      return { data: whoisData, source: 'whois' };
+    }
+    
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -2397,84 +2507,39 @@ serve(async (req) => {
     
     console.log(`Looking up domain: ${normalizedDomain}`);
     const tld = getTld(normalizedDomain);
+    const startTime = Date.now();
     
-    // 并行查询价格
-    const pricingPromise = queryPricing(normalizedDomain);
+    // 并行查询价格和域名信息
+    const [queryResult, pricingResult] = await Promise.all([
+      smartDomainQuery(normalizedDomain, tld),
+      queryPricing(normalizedDomain)
+    ]);
     
-    let domainData: any = null;
-    let querySource = '';
+    const elapsed = Date.now() - startTime;
+    console.log(`Query completed in ${elapsed}ms`);
     
-    // 策略: RDAP 优先 -> WHOIS 兜底
-    try {
-      // 1. 首先尝试 RDAP
-      console.log(`Attempting RDAP query for ${normalizedDomain}`);
-      const rdapData = await queryRdap(normalizedDomain);
-      domainData = parseRdapResponse(rdapData, rdapData);
-      querySource = 'rdap';
-      console.log('RDAP query successful');
-    } catch (rdapError: any) {
-      console.log(`RDAP failed: ${rdapError.message}`);
-      
-      // 检查是否是"域名不存在"错误
-      if (rdapError.message === 'domain_not_found') {
-        // 先尝试 WHOIS 确认
-        console.log('RDAP returned not found, trying WHOIS to confirm...');
-        const whoisData = await queryWhois(normalizedDomain);
-        
-        if (whoisData && (whoisData.registrar || whoisData.registrationDate)) {
-          // WHOIS 找到了数据，说明域名存在
-          domainData = whoisData;
-          querySource = 'whois';
-          console.log('WHOIS found domain data despite RDAP 404');
-        } else {
-          // 确认域名不存在
-          const pricingResult = await pricingPromise;
-          return new Response(
-            JSON.stringify({ 
-              error: `域名 ${normalizedDomain} 未注册或不存在`,
-              errorType: 'domain_not_found',
-              isAvailable: true,
-              pricing: pricingResult,
-            }),
-            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-      } else {
-        // 2. RDAP 不支持或失败，尝试 WHOIS
-        console.log(`Falling back to WHOIS for .${tld}`);
-        const whoisData = await queryWhois(normalizedDomain);
-        
-        if (whoisData && (whoisData.registrar || whoisData.registrationDate || whoisData.nameServers?.length > 0)) {
-          domainData = whoisData;
-          querySource = 'whois';
-          console.log('WHOIS fallback successful');
-        } else {
-          // 所有查询都失败
-          console.log('All query methods failed');
-          const pricingResult = await pricingPromise;
-          return new Response(
-            JSON.stringify({ 
-              error: `无法查询 .${tld} 域名，RDAP 和 WHOIS 均不可用`,
-              errorType: 'all_methods_failed',
-              pricing: pricingResult,
-            }),
-            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-      }
+    if (!queryResult) {
+      // 域名不存在或查询失败
+      return new Response(
+        JSON.stringify({ 
+          error: `域名 ${normalizedDomain} 未注册或无法查询`,
+          errorType: 'domain_not_found',
+          isAvailable: true,
+          pricing: pricingResult,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
     
-    // 获取价格结果
-    const pricingResult = await pricingPromise;
-    
     const result = {
-      primary: domainData,
+      primary: queryResult.data,
       pricing: pricingResult,
       isRegistered: true,
-      querySource: querySource,
+      querySource: queryResult.source,
+      queryTime: elapsed,
     };
     
-    console.log(`Domain lookup successful via ${querySource}`);
+    console.log(`Domain lookup successful via ${queryResult.source} in ${elapsed}ms`);
     
     return new Response(
       JSON.stringify(result),

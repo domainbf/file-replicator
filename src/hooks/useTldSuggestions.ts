@@ -4,30 +4,55 @@ import { supabase } from '@/integrations/supabase/client';
 // Common TLDs to prioritize in suggestions
 const COMMON_TLDS = ['com', 'net', 'org', 'io', 'co', 'ai', 'app', 'dev', 'cn', 'rw'];
 
+// Module-level cache to avoid refetching
+let cachedTlds: string[] | null = null;
+let cachePromise: Promise<string[]> | null = null;
+
+// Fetch TLDs with caching
+const fetchTldsWithCache = async (): Promise<string[]> => {
+  // Return cached result
+  if (cachedTlds) return cachedTlds;
+  
+  // Return ongoing promise if exists
+  if (cachePromise) return cachePromise;
+  
+  // Start new fetch
+  cachePromise = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from('whois_servers')
+        .select('tld')
+        .order('tld');
+
+      if (!error && data) {
+        cachedTlds = data.map(item => item.tld);
+        return cachedTlds;
+      }
+    } catch (e) {
+      console.error('Failed to fetch TLDs:', e);
+    }
+    return [];
+  })();
+  
+  return cachePromise;
+};
+
 export const useTldSuggestions = () => {
-  const [allTlds, setAllTlds] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [allTlds, setAllTlds] = useState<string[]>(cachedTlds || []);
+  const [loading, setLoading] = useState(!cachedTlds);
 
   useEffect(() => {
-    const fetchTlds = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('whois_servers')
-          .select('tld')
-          .order('tld');
+    // Skip if already cached
+    if (cachedTlds) {
+      setAllTlds(cachedTlds);
+      setLoading(false);
+      return;
+    }
 
-        if (!error && data) {
-          const tlds = data.map(item => item.tld);
-          setAllTlds(tlds);
-        }
-      } catch (e) {
-        console.error('Failed to fetch TLDs:', e);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTlds();
+    fetchTldsWithCache().then(tlds => {
+      setAllTlds(tlds);
+      setLoading(false);
+    });
   }, []);
 
   const getSuggestions = useMemo(() => {
@@ -47,7 +72,7 @@ export const useTldSuggestions = () => {
         // Filter TLDs that start with the typed suffix
         const matchingTlds = allTlds
           .filter(tld => tld.startsWith(tldPart))
-          .slice(0, maxResults);
+          .slice(0, maxResults * 2); // Get more for sorting
         
         // Sort: common TLDs first, then alphabetically
         return matchingTlds
@@ -59,24 +84,25 @@ export const useTldSuggestions = () => {
             if (aCommon !== -1 && bCommon !== -1) return aCommon - bCommon;
             return a.localeCompare(b);
           })
+          .slice(0, maxResults)
           .map(tld => `${prefix}.${tld}`);
       }
       
       // No dot - suggest common TLDs first
       const suggestions: string[] = [];
       
-      // First add common TLDs
+      // If input looks like a TLD prefix itself (e.g., "ai"), prioritize that TLD
+      const matchingTld = allTlds.find(tld => tld === trimmed);
+      if (matchingTld) {
+        suggestions.push(`${trimmed}.${matchingTld}`);
+      }
+      
+      // Add common TLDs
       COMMON_TLDS.forEach(tld => {
-        if (allTlds.includes(tld)) {
+        if (allTlds.includes(tld) && !suggestions.some(s => s.endsWith(`.${tld}`))) {
           suggestions.push(`${trimmed}.${tld}`);
         }
       });
-      
-      // If input looks like a TLD prefix itself (e.g., "ai"), prioritize that TLD
-      const matchingTld = allTlds.find(tld => tld === trimmed);
-      if (matchingTld && !suggestions.some(s => s.endsWith(`.${matchingTld}`))) {
-        suggestions.unshift(`${trimmed}.${matchingTld}`);
-      }
       
       return suggestions.slice(0, maxResults);
     };
