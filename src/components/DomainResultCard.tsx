@@ -55,9 +55,10 @@ export interface PricingData {
 interface DomainResultCardProps {
   data: WhoisData;
   pricing?: PricingData | null;
+  pricingLoading?: boolean;
 }
 
-const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
+const DomainResultCard = ({ data, pricing, pricingLoading }: DomainResultCardProps) => {
   const [copiedNs, setCopiedNs] = useState<string | null>(null);
   const [copiedJson, setCopiedJson] = useState(false);
   const { toast } = useToast();
@@ -125,7 +126,12 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
       {/* Price Tags Row */}
       <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 text-sm">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          {pricing?.registerPrice || pricing?.renewPrice ? (
+          {pricingLoading ? (
+            <span className="text-xs text-muted-foreground/70 flex items-center gap-1">
+              <span className="animate-pulse">●</span>
+              {language === 'zh' ? '价格加载中...' : 'Loading price...'}
+            </span>
+          ) : pricing?.registerPrice || pricing?.renewPrice ? (
             <>
               <span className="whitespace-nowrap">
                 <span className="text-muted-foreground">{t('pricing.register')}:</span>
@@ -149,7 +155,7 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
           <span className="whitespace-nowrap">
             <span className="text-muted-foreground">{language === 'zh' ? '溢价' : 'Premium'}:</span>
             <span className={`font-medium ml-1 ${pricing?.isPremium ? 'text-warning' : 'text-muted-foreground'}`}>
-              {pricing?.isPremium ? (language === 'zh' ? '是' : 'Yes') : (language === 'zh' ? '否' : 'No')}
+              {pricingLoading ? '-' : pricing?.isPremium ? (language === 'zh' ? '是' : 'Yes') : (language === 'zh' ? '否' : 'No')}
             </span>
           </span>
           <Badge variant="default" className="text-xs">{t('pricing.registered')}</Badge>
@@ -166,11 +172,14 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
       <Card>
         <CardContent className="pt-5 pb-5">
           {/* Domain Name Header with Favicon and Special Badge */}
-          <div className="mb-4 flex items-center gap-3">
+          <div className="mb-4 flex items-center gap-3 relative">
             <DomainFavicon domain={data.domain} size="lg" />
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex-1 min-w-0">
               <h2 className="text-xl font-bold uppercase tracking-wide">{data.domain}</h2>
-              <SpecialDomainBadge domain={data.domain} />
+            </div>
+            {/* Special badge fixed to the right */}
+            <div className="absolute -top-2 -right-2">
+              <SpecialDomainBadge domain={data.domain} position="fixed-right" />
             </div>
           </div>
 

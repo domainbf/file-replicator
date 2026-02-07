@@ -9,6 +9,7 @@ import DomainResultCard, { WhoisData, PricingData } from './DomainResultCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { addRecentQuery } from './RecentQueries';
+import { getFromCache, saveToCache } from '@/hooks/useQueryCache';
 
 interface DomainLookupProps {
   initialDomain?: string;
@@ -19,12 +20,14 @@ interface DomainLookupProps {
 const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: DomainLookupProps) => {
   const [domain, setDomain] = useState(initialDomain || '');
   const [loading, setLoading] = useState(false);
+  const [pricingLoading, setPricingLoading] = useState(false);
   const [result, setResult] = useState<WhoisData | null>(null);
   const [pricing, setPricing] = useState<PricingData | null>(null);
   const [error, setError] = useState<string>('');
   const [isAvailable, setIsAvailable] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [fromCache, setFromCache] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const { t, language } = useLanguage();
@@ -72,12 +75,20 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
     });
   };
 
+  // Check if domain is ccTLD (country code TLD)
+  const isCcTLD = (domain: string): boolean => {
+    const tld = domain.split('.').pop()?.toLowerCase() || '';
+    // Most ccTLDs are 2 characters
+    return tld.length === 2;
+  };
+
   const handleLookupWithDomain = async (domainToLookup: string) => {
     setError('');
     setResult(null);
     setPricing(null);
     setIsFavorite(false);
     setIsAvailable(false);
+    setFromCache(false);
 
     if (!domainToLookup.trim()) {
       setError(t('error.enterDomain'));
@@ -89,11 +100,37 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
       return;
     }
 
+    const normalizedDomain = domainToLookup.trim().toLowerCase();
+
+    // Check cache first for faster response
+    const cached = getFromCache(normalizedDomain);
+    if (cached) {
+      setResult(cached.whoisData);
+      setPricing(cached.pricing);
+      setFromCache(true);
+      onDomainQueried?.(normalizedDomain);
+      addRecentQuery(normalizedDomain, cached.isRegistered);
+      await checkIsFavorite(normalizedDomain);
+      
+      // Optionally refresh in background for ccTLD or old cache
+      const cacheAge = Date.now() - cached.timestamp;
+      if (cacheAge > 10 * 60 * 1000) { // Refresh if > 10 min old
+        refreshInBackground(normalizedDomain);
+      }
+      return;
+    }
+
     setLoading(true);
 
     try {
+      // For ccTLD domains, skip pricing initially for faster response
+      const skipInitialPricing = isCcTLD(normalizedDomain);
+      
       const { data, error: fnError } = await supabase.functions.invoke('domain-lookup', {
-        body: { domain: domainToLookup.trim().toLowerCase() }
+        body: { 
+          domain: normalizedDomain,
+          skipPricing: skipInitialPricing,
+        }
       });
 
       if (fnError) {
@@ -105,6 +142,7 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
       if (data.error) {
         if (data.isAvailable) {
           setIsAvailable(true);
+          addRecentQuery(normalizedDomain, false);
         }
         setError(data.error);
         return;
@@ -137,17 +175,23 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
         };
         setResult(whoisData);
         
+        // Handle pricing
         if (data.pricing) {
           setPricing(data.pricing);
+          saveToCache(normalizedDomain, whoisData, data.pricing, true);
+        } else if (skipInitialPricing) {
+          // Fetch pricing in background for ccTLD
+          saveToCache(normalizedDomain, whoisData, null, true);
+          fetchPricingAsync(normalizedDomain, whoisData);
+        } else {
+          saveToCache(normalizedDomain, whoisData, null, true);
         }
         
-        onDomainQueried?.(domainToLookup.trim().toLowerCase());
+        onDomainQueried?.(normalizedDomain);
+        addRecentQuery(normalizedDomain, true);
         
-        // Add to recent queries (localStorage)
-        addRecentQuery(domainToLookup.trim());
-        
-        await saveToHistory(domainToLookup.trim(), whoisData);
-        await checkIsFavorite(domainToLookup.trim());
+        await saveToHistory(normalizedDomain, whoisData);
+        await checkIsFavorite(normalizedDomain);
       } else {
         setError(t('error.notFound'));
       }
@@ -156,6 +200,68 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
       setError(t('error.queryFailed'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch pricing asynchronously (after main result)
+  const fetchPricingAsync = async (domainName: string, whoisData: WhoisData) => {
+    setPricingLoading(true);
+    try {
+      const { data } = await supabase.functions.invoke('domain-lookup', {
+        body: { 
+          domain: domainName,
+          pricingOnly: true,
+        }
+      });
+      
+      if (data?.pricing) {
+        setPricing(data.pricing);
+        saveToCache(domainName, whoisData, data.pricing, true);
+      }
+    } catch (e) {
+      console.log('Pricing fetch failed:', e);
+    } finally {
+      setPricingLoading(false);
+    }
+  };
+
+  // Refresh data in background without blocking UI
+  const refreshInBackground = async (domainName: string) => {
+    try {
+      const { data } = await supabase.functions.invoke('domain-lookup', {
+        body: { domain: domainName }
+      });
+      
+      if (data?.primary) {
+        const whoisData: WhoisData = {
+          domain: data.primary.domain,
+          registrar: data.primary.registrar || 'N/A',
+          registrationDate: data.primary.registrationDate || 'N/A',
+          expirationDate: data.primary.expirationDate || 'N/A',
+          lastUpdated: data.primary.lastUpdated || 'N/A',
+          nameServers: data.primary.nameServers || [],
+          status: data.primary.status || [],
+          statusTranslated: data.primary.statusTranslated || [],
+          registrant: data.primary.registrant,
+          dnssec: data.primary.dnssec || false,
+          source: data.primary.source === 'rdap' ? 'rdap' : 'whois',
+          registrarWebsite: data.primary.registrarWebsite,
+          registrarIanaId: data.primary.registrarIanaId,
+          dnsProvider: data.primary.dnsProvider,
+          privacyProtection: data.primary.privacyProtection,
+          ageLabel: data.primary.ageLabel,
+          updateLabel: data.primary.updateLabel,
+          remainingDays: data.primary.remainingDays,
+          registrationDateFormatted: data.primary.registrationDateFormatted,
+          expirationDateFormatted: data.primary.expirationDateFormatted,
+          lastUpdatedFormatted: data.primary.lastUpdatedFormatted,
+          rawData: data.primary.rawData,
+        };
+        
+        saveToCache(domainName, whoisData, data.pricing || null, true);
+      }
+    } catch (e) {
+      console.log('Background refresh failed:', e);
     }
   };
 
@@ -257,7 +363,13 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
           {result && !loading && (
             <div className="space-y-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
               {user && (
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between">
+                  {fromCache && (
+                    <span className="text-xs text-muted-foreground">
+                      ⚡ {language === 'zh' ? '来自缓存' : 'From cache'}
+                    </span>
+                  )}
+                  <div className="flex-1" />
                   <Button
                     variant={isFavorite ? "default" : "outline"}
                     size="sm"
@@ -270,7 +382,11 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
                   </Button>
                 </div>
               )}
-              <DomainResultCard data={result} pricing={pricing} />
+              <DomainResultCard 
+                data={result} 
+                pricing={pricing} 
+                pricingLoading={pricingLoading}
+              />
             </div>
           )}
         </div>

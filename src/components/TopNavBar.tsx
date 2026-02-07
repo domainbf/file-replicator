@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom';
-import { Sun, Moon, Languages, User, LogOut, Globe } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Sun, Moon, Globe, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -14,9 +14,11 @@ import { useLanguage } from '@/hooks/useLanguage';
 interface TopNavBarProps {
   isDark: boolean;
   setIsDark: (value: boolean) => void;
+  onLogoClick?: () => void;
 }
 
-const TopNavBar = ({ isDark, setIsDark }: TopNavBarProps) => {
+const TopNavBar = ({ isDark, setIsDark, onLogoClick }: TopNavBarProps) => {
+  const navigate = useNavigate();
   const { user, loading, signOut } = useAuth();
   const { t, language, setLanguage } = useLanguage();
 
@@ -24,15 +26,25 @@ const TopNavBar = ({ isDark, setIsDark }: TopNavBarProps) => {
     setLanguage(language === 'zh' ? 'en' : 'zh');
   };
 
+  const handleLogoClick = () => {
+    if (onLogoClick) {
+      onLogoClick();
+    }
+    navigate('/');
+  };
+
   return (
     <div className="flex items-center justify-center py-4">
       {/* Pill-shaped navigation bar */}
       <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full border border-dashed border-muted-foreground/30 bg-background/80 backdrop-blur-sm">
-        {/* Logo/Title */}
-        <div className="flex items-center gap-2 pr-3 border-r border-muted-foreground/20">
+        {/* Logo/Title - clickable to clear query */}
+        <button 
+          onClick={handleLogoClick}
+          className="flex items-center gap-2 pr-3 border-r border-muted-foreground/20 hover:opacity-80 transition-opacity"
+        >
           <span className="font-semibold text-sm tracking-wide">RDAP WHOIS</span>
           <span className="text-xs text-muted-foreground">1.0</span>
-        </div>
+        </button>
 
         {/* Action icons */}
         <div className="flex items-center gap-1">
