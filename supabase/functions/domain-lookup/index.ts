@@ -546,33 +546,56 @@ function parseRdapResponse(data: RdapResponse): any {
   return result;
 }
 
-// Query pricing API
+// Query pricing API from api.tian.hu
 async function queryPricing(domain: string): Promise<any> {
-  try {
-    const tld = getTld(domain);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    
-    const response = await fetch(`https://api.tian.hu/domain/price?tld=${tld}`, {
-      signal: controller.signal,
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'DomainLookup/1.0'
+  // Try multiple API endpoints for pricing
+  const endpoints = [
+    `https://api.tian.hu/api/domain/price?domain=${encodeURIComponent(domain)}`,
+    `https://api.tian.hu/v1/domain/price?domain=${encodeURIComponent(domain)}`,
+    `https://api.tian.hu/domain/check?domain=${encodeURIComponent(domain)}`,
+  ];
+  
+  for (const url of endpoints) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'DomainLookup/1.0'
+        }
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Pricing API response:', JSON.stringify(data));
+        
+        // Skip if we got an error response
+        if (data.code && data.code !== 200) continue;
+        
+        // Handle various response formats
+        const pricing = data.data || data;
+        
+        const registerPrice = pricing.register_price || pricing.registerPrice || pricing.price || pricing.register || null;
+        const renewPrice = pricing.renew_price || pricing.renewPrice || pricing.renew || null;
+        
+        // Only return if we have at least one price
+        if (registerPrice || renewPrice) {
+          return {
+            registerPrice,
+            renewPrice,
+            isPremium: pricing.is_premium || pricing.isPremium || pricing.premium || false,
+            currency: pricing.currency || 'CNY',
+          };
+        }
       }
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (response.ok) {
-      const data = await response.json();
-      return {
-        registerPrice: data.register_price || data.registerPrice,
-        renewPrice: data.renew_price || data.renewPrice,
-        isPremium: data.is_premium || data.isPremium || false,
-      };
+    } catch (error) {
+      console.log('Pricing API failed for', url, ':', error);
     }
-  } catch (error) {
-    console.log('Pricing API failed:', error);
   }
   
   return null;
