@@ -1787,22 +1787,51 @@ function parseWhoisText(text: string, domain: string): any {
     }
   }
   
-  // 如果没有NS，尝试正则提取
+  // 如果没有NS，尝试正则提取 - 超级增强版
   if (result.nameServers.length === 0) {
     const nsPatterns = [
-      /Serveur[s]? de noms[:\s]+([^\r\n]+)/gi,
+      // 标准格式
+      /Serveur[s]?\s*(?:de\s*)?noms?[:\s]+([^\r\n]+)/gi,
       /Name[s]?\s*Server[s]?[:\s]+([^\r\n]+)/gi,
       /nserver[:\s]+([^\r\n]+)/gi,
       /DNS[:\s]+([^\r\n]+)/gi,
+      /Host\s*Name[:\s]+([^\r\n]+)/gi,
+      // 中文
+      /域名服务器[:\s]*([^\r\n]+)/gi,
+      /DNS服务器[:\s]*([^\r\n]+)/gi,
+      /名称服务器[:\s]*([^\r\n]+)/gi,
+      // 日韩
+      /ネームサーバ[ー]?[:\s]*([^\r\n]+)/gi,
+      /네임서버[:\s]*([^\r\n]+)/gi,
+      // 俄语
+      /Сервер\s*имен[:\s]*([^\r\n]+)/gi,
+      // 标签格式 (如 NS1:, ns1:)
+      /NS\d*[:\s]+([^\r\n]+)/gi,
+      // 阿拉伯语
+      /خادم\s*الأسماء[:\s]*([^\r\n]+)/gi,
     ];
     
     for (const pattern of nsPatterns) {
       let match;
+      pattern.lastIndex = 0; // 重置正则状态
       while ((match = pattern.exec(text)) !== null) {
-        const ns = match[1].trim().toLowerCase();
-        if (ns && ns.includes('.') && !result.nameServers.includes(ns)) {
+        let ns = match[1].trim().toLowerCase();
+        // 清理常见前缀和后缀
+        ns = ns.replace(/^:\s*/, '').replace(/\s+.*$/, '').trim();
+        // 验证是否为有效域名格式
+        if (ns && ns.includes('.') && !ns.includes(' ') && ns.length < 100 && !result.nameServers.includes(ns)) {
           result.nameServers.push(ns);
         }
+      }
+    }
+    
+    // 尝试直接匹配看起来像NS的域名 (如 dns1.xxx.com, ns1.xxx.com)
+    const directNsPattern = /\b((?:dns|ns|name)\d*\.[a-z0-9][a-z0-9.-]+\.[a-z]{2,})\b/gi;
+    let directMatch;
+    while ((directMatch = directNsPattern.exec(text)) !== null) {
+      const ns = directMatch[1].toLowerCase();
+      if (!result.nameServers.includes(ns)) {
+        result.nameServers.push(ns);
       }
     }
   }
@@ -1813,16 +1842,73 @@ function parseWhoisText(text: string, domain: string): any {
       /Statut[:\s]+([^\r\n]+)/gi,
       /Status[:\s]+([^\r\n]+)/gi,
       /(?:状态|域名状态)[:\s]*([^\r\n]+)/gi,
+      /State[:\s]+([^\r\n]+)/gi,
+      /État[:\s]+([^\r\n]+)/gi,
+      /Estado[:\s]+([^\r\n]+)/gi,
     ];
     
     for (const pattern of statusPatterns) {
       let match;
+      pattern.lastIndex = 0;
       while ((match = pattern.exec(text)) !== null) {
         const status = match[1].trim().split(/\s+/)[0].replace(/http.*/i, '').trim();
         if (status && !result.status.includes(status)) {
           result.status.push(status);
         }
       }
+    }
+  }
+  
+  // 如果没有注册人信息，尝试正则提取 - 增强版
+  if (!result.registrant || !result.registrant.name) {
+    const registrantPatterns = [
+      // 英文
+      /Registrant(?:\s+Name)?[:\s]+([^\r\n]+)/i,
+      /(?:Domain\s+)?Holder(?:\s+Name)?[:\s]+([^\r\n]+)/i,
+      /Owner(?:\s+Name)?[:\s]+([^\r\n]+)/i,
+      /Person[:\s]+([^\r\n]+)/i,
+      // 中文
+      /(?:注册人|持有人|所有者)[:\s]*([^\r\n]+)/i,
+      /域名持有者[:\s]*([^\r\n]+)/i,
+      // 法语
+      /Titulaire[:\s]+([^\r\n]+)/i,
+      /Propriétaire[:\s]+([^\r\n]+)/i,
+      // 德语
+      /Inhaber[:\s]+([^\r\n]+)/i,
+      /Eigentümer[:\s]+([^\r\n]+)/i,
+      // 日语
+      /登録者名?[:\s]*([^\r\n]+)/i,
+      // 韩语
+      /등록인[:\s]*([^\r\n]+)/i,
+      // 俄语
+      /Владелец[:\s]*([^\r\n]+)/i,
+    ];
+    
+    for (const pattern of registrantPatterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        const name = match[1].trim();
+        // 排除常见的非姓名值
+        if (name && name.length < 100 && 
+            !name.toLowerCase().includes('redacted') &&
+            !name.toLowerCase().includes('privacy') &&
+            !name.toLowerCase().includes('whoisguard') &&
+            !name.toLowerCase().includes('not disclosed')) {
+          if (!result.registrant) result.registrant = {};
+          result.registrant.name = name;
+          break;
+        }
+      }
+    }
+  }
+  
+  // 如果没有注册人邮箱，尝试正则提取
+  if (!result.registrant?.email) {
+    const emailPattern = /(?:Registrant\s+)?(?:Contact\s+)?Email[:\s]+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
+    const emailMatch = text.match(emailPattern);
+    if (emailMatch && emailMatch[1]) {
+      if (!result.registrant) result.registrant = {};
+      result.registrant.email = emailMatch[1].trim();
     }
   }
   

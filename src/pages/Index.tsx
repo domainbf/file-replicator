@@ -1,20 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import DomainLookup from '@/components/DomainLookup';
 import QueryHistory from '@/components/QueryHistory';
 import Favorites from '@/components/Favorites';
 import RecentQueries from '@/components/RecentQueries';
+import TopNavBar from '@/components/TopNavBar';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
-import { Sun, Moon, Languages, User, LogOut } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 interface IndexProps {
   initialDomain?: string;
@@ -24,8 +16,8 @@ const Index = ({ initialDomain: propDomain }: IndexProps) => {
   const [isDark, setIsDark] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState(propDomain || '');
   const [favoriteRefresh, setFavoriteRefresh] = useState(0);
-  const { user, loading, signOut } = useAuth();
-  const { t, language, setLanguage } = useLanguage();
+  const { user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -58,63 +50,17 @@ const Index = ({ initialDomain: propDomain }: IndexProps) => {
     }
   };
 
-  const toggleLanguage = () => {
-    setLanguage(language === 'zh' ? 'en' : 'zh');
-  };
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <div className="container max-w-6xl mx-auto px-4 py-6 flex-1">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-5">
-          <div className="space-y-1.5 flex-1 min-w-0 pr-4">
-            <h1 className="text-xl font-bold">{t('app.title')}</h1>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              {t('app.description')}
-            </p>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8"
-              onClick={toggleLanguage}
-            >
-              <Languages className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setIsDark(!isDark)}
-            >
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
-            
-            {loading ? null : user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <User className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem disabled className="text-xs text-muted-foreground">
-                    {user.email}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={signOut} className="text-destructive">
-                    <LogOut className="h-4 w-4 mr-2" />
-                    {t('app.logout')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button variant="outline" size="sm" className="h-8 text-xs" asChild>
-                <Link to="/auth">{t('app.login')}</Link>
-              </Button>
-            )}
-          </div>
+      <div className="container max-w-6xl mx-auto px-4 flex-1">
+        {/* Top Navigation Bar - Pill style */}
+        <TopNavBar isDark={isDark} setIsDark={setIsDark} />
+
+        {/* Header description */}
+        <div className="text-center mb-6">
+          <p className="text-xs text-muted-foreground leading-relaxed max-w-lg mx-auto">
+            {t('app.description')}
+          </p>
         </div>
 
         {/* Main Content */}
