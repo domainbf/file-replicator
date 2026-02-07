@@ -16,7 +16,7 @@ let whoisServerCache: Record<string, string> = {};
 let whoisCacheTime = 0;
 const WHOIS_CACHE_TTL = 3600000; // 1 hour
 
-// ==================== 完整的域名状态码映射 ====================
+// ==================== 完整的域名状态码映射 (支持多语言) ====================
 const STATUS_CODE_MAP: Record<string, string> = {
   // ICANN通用核心状态码
   'ok': '正常',
@@ -24,6 +24,32 @@ const STATUS_CODE_MAP: Record<string, string> = {
   'registered': '已注册',
   'connect': '已连接',
   'connected': '已连接',
+  
+  // 法语状态码
+  'actif': '正常',
+  'inactif': '未激活',
+  'suspendu': '已暂停',
+  'expiré': '已过期',
+  'expire': '已过期',
+  'réservé': '已保留',
+  'reserve': '已保留',
+  'bloqué': '已锁定',
+  'bloque': '已锁定',
+  
+  // 德语状态码
+  'aktiv': '正常',
+  'gesperrt': '已锁定',
+  'abgelaufen': '已过期',
+  
+  // 西班牙语状态码
+  'activo': '正常',
+  'inactivo': '未激活',
+  'suspendido': '已暂停',
+  'expirado': '已过期',
+  
+  // 日语状态码
+  '有効': '正常',
+  '無効': '未激活',
   
   // Hold状态
   'clienthold': '客户端暂停',
@@ -613,17 +639,49 @@ function detectPrivacyProtection(registrant: any, whoisText?: string): boolean {
          checkValue(registrant.email);
 }
 
-// 格式化日期为中文格式
+// 格式化日期为中文格式 - 增强版
 function formatDateChinese(dateStr: string): string {
-  if (!dateStr || dateStr === 'N/A') return '';
+  if (!dateStr || dateStr === 'N/A' || dateStr.trim() === '') return '';
   
   try {
-    const date = new Date(dateStr);
+    let date: Date;
+    const cleanStr = dateStr.trim();
+    
+    // 尝试解析各种日期格式
+    // 1. ISO 8601: 2025-05-19T07:29:45.086917Z
+    if (cleanStr.includes('T')) {
+      date = new Date(cleanStr);
+    }
+    // 2. 中国格式: 2023-05-12 17:05:28 (空格分隔)
+    else if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(cleanStr)) {
+      date = new Date(cleanStr.replace(' ', 'T') + 'Z');
+    }
+    // 3. 简短格式: 2023-05-12
+    else if (/^\d{4}-\d{2}-\d{2}$/.test(cleanStr)) {
+      date = new Date(cleanStr + 'T00:00:00Z');
+    }
+    // 4. 欧洲格式: 12/05/2023 or 12.05.2023
+    else if (/^\d{2}[\/\.]\d{2}[\/\.]\d{4}$/.test(cleanStr)) {
+      const parts = cleanStr.split(/[\/\.]/);
+      date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+    }
+    // 5. 英文日期: 12 May 2023
+    else if (/^\d{1,2}\s+\w+\s+\d{4}$/.test(cleanStr)) {
+      date = new Date(cleanStr);
+    }
+    // 6. 其他格式尝试直接解析
+    else {
+      date = new Date(cleanStr);
+    }
+    
     if (isNaN(date.getTime())) return dateStr;
     
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
+    
+    // 检查年份合理性 (1990-2100)
+    if (year < 1990 || year > 2100) return dateStr;
     
     return `${year}年${month}月${day}日`;
   } catch {
@@ -836,7 +894,7 @@ async function queryWhoisHttp(domain: string, tld: string): Promise<string | nul
   return null;
 }
 
-// 解析 WHOIS 文本响应 (支持多语言多格式)
+// 解析 WHOIS 文本响应 (支持多语言多格式) - 超级增强版
 function parseWhoisText(text: string, domain: string): any {
   const result: any = {
     domain: domain,
@@ -849,209 +907,532 @@ function parseWhoisText(text: string, domain: string): any {
   
   const lines = text.split('\n');
   
-  // 常见字段映射 (支持多语言: 英/中/法/德/西/日/韩)
+  // ==================== 多语言字段映射 (超级扩展版) ====================
   const fieldMappings: Record<string, string[]> = {
     registrar: [
+      // 英语
       'Registrar:', 'Sponsoring Registrar:', 'registrar:', 'Registrar Name:', 
-      'Registrar Organization:', 'Registrar Organisation:',
-      '注册商:', 'Registrar',
+      'Registrar Organization:', 'Registrar Organisation:', 'Registrar',
+      'Registered through:', 'Registration Service Provider:',
+      // 中文
+      '注册商:', '注册服务商:', '域名注册商:',
+      // 法语
+      'Bureau d\'enregistrement:', 'Registraire:',
+      // 德语
+      'Registrar:', 'Vergabestelle:',
+      // 西班牙语
+      'Registrador:',
+      // 葡萄牙语
+      'Registrador:',
+      // 俄语
+      'Регистратор:',
+      // 日语
+      '登録者:',
+      // 韩语
+      '등록대행자:',
     ],
     registrationDate: [
+      // 英语
       'Creation Date:', 'Created:', 'Registration Date:', 'Domain Registration Date:', 
       'created:', 'Domain Create Date:', 'Created On:', 'Creation date:',
-      '注册日期:', '创建日期:',
-      'domain_datecreate:',
+      'Registered:', 'Registered on:', 'Domain registered:', 'Registration Time:',
+      'domain_datecreate:', 'Created Date:', 'Registered Date:',
+      // 中文
+      '注册日期:', '创建日期:', '注册时间:', '域名注册时间:',
+      // 法语
+      'Date de création:', 'Date de creation:', 'Créé le:', 'Cree le:',
+      'Date d\'enregistrement:',
+      // 德语
+      'Erstellt am:', 'Erstellt:', 'Registrierungsdatum:', 'Erstellungsdatum:',
+      // 西班牙语
+      'Fecha de creación:', 'Fecha de Creacion:', 'Fecha de registro:',
+      // 葡萄牙语
+      'Data de criação:', 'Data de Criacao:', 'Data de registro:',
+      // 俄语
+      'Дата регистрации:', 'Создан:',
+      // 日语
+      '登録年月日:', '作成日:', '[登録年月日]',
+      // 韩语
+      '등록일:', '등록 일자:',
+      // 荷兰语
+      'Geregistreerd op:',
+      // 意大利语
+      'Data di creazione:',
     ],
     expirationDate: [
+      // 英语
       'Expiry Date:', 'Expiration Date:', 'Registry Expiry Date:', 
       'Registrar Registration Expiration Date:', 'Expires:', 'Expires On:',
-      'paid-till:', 'Valid Until:', 'Validity:',
-      '过期日期:', '到期日期:', 'Domain Expiration Date:',
+      'paid-till:', 'Valid Until:', 'Validity:', 'Expiration Time:',
+      'Domain Expiration Date:', 'Renewal Date:', 'Renewal date:',
+      'Expire Date:', 'Expires date:', 'Expiration:', 'free-date:',
+      // 中文
+      '过期日期:', '到期日期:', '过期时间:', '域名到期时间:', '有效期至:',
+      // 法语
+      'Date d\'expiration:', 'Date d\'expiration:', 'Expire le:',
+      'Date d\'échéance:', 'Date de fin:',
+      // 德语
+      'Gültig bis:', 'Gultig bis:', 'Ablaufdatum:', 'Enddatum:',
+      // 西班牙语
+      'Fecha de expiración:', 'Fecha de vencimiento:', 'Fecha de caducidad:',
+      // 葡萄牙语
+      'Data de expiração:', 'Data de vencimento:',
+      // 俄语
+      'Дата окончания:', 'Оплачен до:',
+      // 日语
+      '有効期限:', '満了日:',
+      // 韩语
+      '등록 만료일:', '만료일:',
+      // 荷兰语
+      'Vervalt op:',
+      // 意大利语
+      'Data di scadenza:',
     ],
     lastUpdated: [
+      // 英语
       'Updated Date:', 'Last Updated:', 'Last Modified:', 'Modified:',
-      'Updated:', 'Last Update:', 'Domain Last Updated Date:',
-      '更新日期:', '最后更新:',
+      'Updated:', 'Last Update:', 'Domain Last Updated Date:', 'Changed:',
+      'Last updated:', 'Last update of RDAP database:',
+      // 中文
+      '更新日期:', '最后更新:', '最近更新:',
+      // 法语
+      'Dernière modification:', 'Derniere modification:', 'Mis à jour:',
+      'Dernière mise à jour:', 'Modifié le:',
+      // 德语
+      'Zuletzt geändert:', 'Letzte Aktualisierung:', 'Aktualisiert am:',
+      // 西班牙语
+      'Última actualización:', 'Fecha de actualización:',
+      // 日语
+      '最終更新:', '更新日:',
+      // 韩语
+      '최근 수정일:',
     ],
     nameServer: [
+      // 英语
       'Name Server:', 'Nameserver:', 'nserver:', 'DNS:', 'Name Server',
-      'NS:', 'Nameservers:', 'Name servers:',
-      '域名服务器:', 'DNS服务器:',
+      'NS:', 'Nameservers:', 'Name servers:', 'DNS servers:', 'Host Name:',
+      // 中文
+      '域名服务器:', 'DNS服务器:', '名称服务器:',
+      // 法语
+      'Serveur de noms:', 'Serveurs de noms:', 'Serveur DNS:',
+      // 德语
+      'Nameserver:', 'Namenserver:',
+      // 西班牙语
+      'Servidor de nombres:', 'Servidores DNS:',
+      // 日语
+      'ネームサーバ:', 'ネームサーバー:',
+      // 韩语
+      '네임서버:',
     ],
     status: [
-      'Domain Status:', 'Status:', 'status:', 'State:',
+      // 英语
+      'Domain Status:', 'Status:', 'status:', 'State:', 'Domain status:',
+      // 中文
       '域名状态:', '状态:',
+      // 法语
+      'Statut:', 'État:', 'Etat:',
+      // 德语
+      'Status:', 'Zustand:',
+      // 西班牙语
+      'Estado:',
+      // 日语
+      '状態:',
     ],
     registrantName: [
+      // 英语
       'Registrant Name:', 'Registrant:', 'Registrant Contact Name:',
-      'Person:', 'Owner:', 'Holder:',
-      '注册人:', '持有人:',
+      'Person:', 'Owner:', 'Holder:', 'Domain Holder:', 'Holder Name:',
+      'Owner Name:', 'Registrant Contact:',
+      // 中文
+      '注册人:', '持有人:', '域名持有者:', '所有者:',
+      // 法语 (注意: "Nom:" 需要在 HOLDER 区块内才匹配，避免匹配 "Nom de domaine:")
+      'Titulaire:', 'Propriétaire:',
+      // 德语
+      'Inhaber:', 'Eigentümer:', 'Domaininhaber:',
+      // 西班牙语
+      'Titular:', 'Propietario:',
+      // 日语
+      '登録者名:', '登録者:',
     ],
+    // 特殊法语字段 (仅在联系人区块内有效)
+    registrantNameFrench: ['Nom:'],
     registrantOrg: [
+      // 英语
       'Registrant Organization:', 'Registrant Organisation:', 
       'Registrant Contact Organization:', 'Organization:', 'Organisation:',
-      '注册人组织:', '组织:',
+      'Org:', 'Registrant Org:',
+      // 中文
+      '注册人组织:', '组织:', '注册机构:',
+      // 法语
+      'Organisation:', 'Organisme:',
+      // 德语
+      'Organisation:', 'Firma:',
+      // 日语
+      '組織名:',
     ],
     registrantCountry: [
+      // 英语
       'Registrant Country:', 'Registrant Country/Economy:', 'Country:',
-      '注册人国家:', '国家:',
+      'Registrant Country Code:', 'Country Code:',
+      // 中文
+      '注册人国家:', '国家:', '国家/地区:',
+      // 法语
+      'Pays:',
+      // 德语
+      'Land:',
+      // 西班牙语
+      'País:',
     ],
     registrantEmail: [
+      // 英语
       'Registrant Email:', 'Registrant Contact Email:', 'Email:',
-      '注册人邮箱:', '邮箱:',
+      'e-mail:', 'E-mail:', 'Contact Email:', 'Admin Email:',
+      // 中文
+      '注册人邮箱:', '邮箱:', '联系邮箱:', '电子邮件:',
+      // 法语
+      'Courriel:', 'E-mail:', 'Adresse électronique:',
+      // 德语
+      'E-Mail:', 'Email:',
+    ],
+    registrantPhone: [
+      // 英语
+      'Registrant Phone:', 'Phone:', 'Tel:', 'Telephone:',
+      // 中文
+      '电话:', '联系电话:',
+      // 法语
+      'Téléphone:', 'Telephone:', 'Tel:',
+      // 德语
+      'Telefon:',
+    ],
+    registrantAddress: [
+      // 英语
+      'Registrant Street:', 'Address:', 'Street:', 'Registrant Address:',
+      // 中文
+      '地址:', '注册人地址:',
+      // 法语
+      'Adresse:',
+      // 德语
+      'Adresse:', 'Straße:',
+    ],
+    registrantCity: [
+      // 英语
+      'Registrant City:', 'City:',
+      // 中文
+      '城市:',
+      // 法语
+      'Ville:',
+      // 德语
+      'Stadt:',
     ],
     ianaId: ['Registrar IANA ID:', 'IANA ID:'],
-    dnssec: ['DNSSEC:', 'dnssec:', 'DNSSEC Status:'],
-  };
-  
-  // 特殊格式模式 (正则匹配)
-  const specialPatterns = {
-    // 法语格式 (.sn, .fr, etc.)
-    creationDateFr: /Date de cr[ée]ation[:\s]+(.+)/i,
-    expirationDateFr: /Date d['']expiration[:\s]+(.+)/i,
-    lastUpdatedFr: /Derni[èe]re modification[:\s]+(.+)/i,
-    nameServerFr: /Serveur[s]? de noms[:\s]+(.+)/i,
-    statusFr: /Statut[:\s]+(.+)/i,
-    nameFr: /^Nom[:\s]+(.+)/i,
-    countryFr: /^Pays[:\s]+(.+)/i,
-    emailFr: /^Courriel[:\s]+(.+)/i,
-    // 德语格式
-    creationDateDe: /Erstellt am[:\s]+(.+)/i,
-    expirationDateDe: /G[üu]ltig bis[:\s]+(.+)/i,
-    // 日语格式
-    creationDateJp: /登録年月日[:\s]+(.+)/,
-    expirationDateJp: /有効期限[:\s]+(.+)/,
-    nameServerJp: /ネームサーバ[:\s]+(.+)/,
-    // 通用日期提取 (ISO格式)
-    isoDate: /(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)/,
+    dnssec: ['DNSSEC:', 'dnssec:', 'DNSSEC Status:', 'DNSSEC signed:'],
   };
   
   // 当前正在解析的联系人类型
   let currentContactType: string | null = null;
   
+  // 辅助函数: 清理提取的值
+  const cleanValue = (value: string): string => {
+    return value.trim()
+      .replace(/^\s*:\s*/, '') // 移除开头的冒号
+      .replace(/\s+/g, ' ') // 规范化空格
+      .trim();
+  };
+  
+  // 辅助函数: 检测字段匹配
+  const matchField = (line: string, patterns: string[]): string | null => {
+    const lowerLine = line.toLowerCase();
+    for (const pattern of patterns) {
+      const lowerPattern = pattern.toLowerCase().replace(':', '');
+      // 尝试精确匹配带冒号的格式
+      if (lowerLine.startsWith(lowerPattern + ':')) {
+        const colonIndex = line.indexOf(':');
+        if (colonIndex > 0) {
+          return cleanValue(line.substring(colonIndex + 1));
+        }
+      }
+      // 尝试匹配不带冒号的格式
+      if (lowerLine.startsWith(lowerPattern) && line.includes(':')) {
+        const colonIndex = line.indexOf(':');
+        if (colonIndex > 0) {
+          return cleanValue(line.substring(colonIndex + 1));
+        }
+      }
+    }
+    return null;
+  };
+  
   for (const line of lines) {
     const trimmedLine = line.trim();
-    if (!trimmedLine || trimmedLine.startsWith('%') || trimmedLine.startsWith('#') || trimmedLine.startsWith('>>>')) continue;
+    if (!trimmedLine || trimmedLine.startsWith('%') || trimmedLine.startsWith('#') || trimmedLine.startsWith('>>>') || trimmedLine.startsWith('===')) continue;
     
-    // 检测联系人区块 (用于解析多联系人格式)
-    if (trimmedLine.includes('[HOLDER]') || trimmedLine.includes('[ADMIN_C]') || trimmedLine.includes('[REGISTRANT]')) {
+    // 检测联系人区块
+    if (trimmedLine.includes('[HOLDER]') || trimmedLine.includes('[REGISTRANT]')) {
       currentContactType = 'registrant';
-    } else if (trimmedLine.includes('[TECH_C]') || trimmedLine.includes('[BILLING_C]')) {
-      currentContactType = null; // 忽略技术和账单联系人
+      continue;
+    } else if (trimmedLine.includes('[ADMIN_C]') || trimmedLine.includes('[TECH_C]') || trimmedLine.includes('[BILLING_C]')) {
+      currentContactType = null;
+      continue;
     }
     
     // 解析注册商
-    for (const pattern of fieldMappings.registrar) {
-      if (trimmedLine.toLowerCase().startsWith(pattern.toLowerCase())) {
-        const value = trimmedLine.substring(pattern.length).trim();
-        if (value && !result.registrar) result.registrar = value;
-      }
+    if (!result.registrar) {
+      const value = matchField(trimmedLine, fieldMappings.registrar);
+      if (value) result.registrar = value;
     }
     
     // 解析注册日期
-    for (const pattern of fieldMappings.registrationDate) {
-      if (trimmedLine.toLowerCase().startsWith(pattern.toLowerCase())) {
-        const value = trimmedLine.substring(pattern.length).trim();
-        if (value && !result.registrationDate) result.registrationDate = value;
-      }
+    if (!result.registrationDate) {
+      const value = matchField(trimmedLine, fieldMappings.registrationDate);
+      if (value) result.registrationDate = value;
     }
     
     // 解析过期日期
-    for (const pattern of fieldMappings.expirationDate) {
-      if (trimmedLine.toLowerCase().startsWith(pattern.toLowerCase())) {
-        const value = trimmedLine.substring(pattern.length).trim();
-        if (value && !result.expirationDate) result.expirationDate = value;
-      }
+    if (!result.expirationDate) {
+      const value = matchField(trimmedLine, fieldMappings.expirationDate);
+      if (value) result.expirationDate = value;
     }
     
     // 解析更新日期
-    for (const pattern of fieldMappings.lastUpdated) {
-      if (trimmedLine.toLowerCase().startsWith(pattern.toLowerCase())) {
-        const value = trimmedLine.substring(pattern.length).trim();
-        if (value && !result.lastUpdated) result.lastUpdated = value;
-      }
+    if (!result.lastUpdated) {
+      const value = matchField(trimmedLine, fieldMappings.lastUpdated);
+      if (value) result.lastUpdated = value;
     }
     
     // 解析域名服务器
-    for (const pattern of fieldMappings.nameServer) {
-      if (trimmedLine.toLowerCase().startsWith(pattern.toLowerCase())) {
-        const value = trimmedLine.substring(pattern.length).trim();
-        if (value && !result.nameServers.includes(value.toLowerCase())) {
-          result.nameServers.push(value.toLowerCase());
-        }
+    const nsValue = matchField(trimmedLine, fieldMappings.nameServer);
+    if (nsValue) {
+      // 清理NS值，移除前缀和多余字符
+      const cleanNs = nsValue.replace(/^:\s*/, '').toLowerCase().trim();
+      if (cleanNs && !result.nameServers.includes(cleanNs) && cleanNs.includes('.')) {
+        result.nameServers.push(cleanNs);
       }
     }
     
     // 解析状态
-    for (const pattern of fieldMappings.status) {
-      if (trimmedLine.toLowerCase().startsWith(pattern.toLowerCase())) {
-        const value = trimmedLine.substring(pattern.length).trim();
-        if (value) {
-          // 提取状态码（去掉URL部分）
-          const statusCode = value.split(' ')[0].split('http')[0].trim();
-          if (statusCode && !result.status.includes(statusCode)) {
-            result.status.push(statusCode);
-          }
-        }
+    const statusValue = matchField(trimmedLine, fieldMappings.status);
+    if (statusValue) {
+      // 提取状态码（去掉URL部分）
+      const statusCode = statusValue.split(' ')[0].split('http')[0].trim();
+      if (statusCode && !result.status.includes(statusCode)) {
+        result.status.push(statusCode);
       }
     }
     
     // 解析注册人信息 (仅在 HOLDER/REGISTRANT 区块或无区块标记时)
     if (currentContactType === 'registrant' || currentContactType === null) {
-      for (const pattern of fieldMappings.registrantName) {
-        if (trimmedLine.toLowerCase().startsWith(pattern.toLowerCase())) {
-          const value = trimmedLine.substring(pattern.length).trim();
-          if (value && (!result.registrant || !result.registrant.name)) {
-            if (!result.registrant) result.registrant = {};
-            result.registrant.name = value;
-          }
+      // 注册人姓名
+      if (!result.registrant?.name) {
+        let value = matchField(trimmedLine, fieldMappings.registrantName);
+        // 法语 "Nom:" 字段只在明确的 HOLDER 区块内匹配，避免匹配 "Nom de domaine:"
+        if (!value && currentContactType === 'registrant') {
+          value = matchField(trimmedLine, fieldMappings.registrantNameFrench || []);
+        }
+        if (value && !value.toLowerCase().includes('domaine')) {
+          if (!result.registrant) result.registrant = {};
+          result.registrant.name = value;
         }
       }
       
-      for (const pattern of fieldMappings.registrantOrg) {
-        if (trimmedLine.toLowerCase().startsWith(pattern.toLowerCase())) {
-          const value = trimmedLine.substring(pattern.length).trim();
-          if (value && (!result.registrant || !result.registrant.organization)) {
-            if (!result.registrant) result.registrant = {};
-            result.registrant.organization = value;
-          }
+      // 注册人组织
+      if (!result.registrant?.organization) {
+        const value = matchField(trimmedLine, fieldMappings.registrantOrg);
+        if (value) {
+          if (!result.registrant) result.registrant = {};
+          result.registrant.organization = value;
         }
       }
       
-      for (const pattern of fieldMappings.registrantCountry) {
-        if (trimmedLine.toLowerCase().startsWith(pattern.toLowerCase())) {
-          const value = trimmedLine.substring(pattern.length).trim();
-          if (value && (!result.registrant || !result.registrant.country)) {
-            if (!result.registrant) result.registrant = {};
-            result.registrant.country = value;
-          }
+      // 注册人国家
+      if (!result.registrant?.country) {
+        const value = matchField(trimmedLine, fieldMappings.registrantCountry);
+        if (value) {
+          if (!result.registrant) result.registrant = {};
+          result.registrant.country = value;
         }
       }
       
-      for (const pattern of fieldMappings.registrantEmail) {
-        if (trimmedLine.toLowerCase().startsWith(pattern.toLowerCase())) {
-          const value = trimmedLine.substring(pattern.length).trim();
-          if (value && (!result.registrant || !result.registrant.email)) {
-            if (!result.registrant) result.registrant = {};
-            result.registrant.email = value;
-          }
+      // 注册人邮箱
+      if (!result.registrant?.email) {
+        const value = matchField(trimmedLine, fieldMappings.registrantEmail);
+        if (value && value.includes('@')) {
+          if (!result.registrant) result.registrant = {};
+          result.registrant.email = value;
+        }
+      }
+      
+      // 注册人电话
+      if (!result.registrant?.phone) {
+        const value = matchField(trimmedLine, fieldMappings.registrantPhone);
+        if (value) {
+          if (!result.registrant) result.registrant = {};
+          result.registrant.phone = value;
+        }
+      }
+      
+      // 注册人城市
+      if (!result.registrant?.city) {
+        const value = matchField(trimmedLine, fieldMappings.registrantCity);
+        if (value) {
+          if (!result.registrant) result.registrant = {};
+          result.registrant.city = value;
         }
       }
     }
     
     // 解析 IANA ID
-    for (const pattern of fieldMappings.ianaId) {
-      if (trimmedLine.toLowerCase().startsWith(pattern.toLowerCase())) {
-        const value = trimmedLine.substring(pattern.length).trim();
-        if (value && !result.registrarIanaId) result.registrarIanaId = value;
-      }
+    if (!result.registrarIanaId) {
+      const value = matchField(trimmedLine, fieldMappings.ianaId);
+      if (value) result.registrarIanaId = value;
     }
     
     // 解析 DNSSEC
-    for (const pattern of fieldMappings.dnssec) {
-      if (trimmedLine.toLowerCase().startsWith(pattern.toLowerCase())) {
-        const value = trimmedLine.substring(pattern.length).trim().toLowerCase();
-        result.dnssec = value === 'yes' || value === 'signed' || value === 'signeddelegation' || value === 'true' || value === 'active';
+    const dnssecValue = matchField(trimmedLine, fieldMappings.dnssec);
+    if (dnssecValue) {
+      const lower = dnssecValue.toLowerCase();
+      result.dnssec = lower === 'yes' || lower === 'signed' || lower === 'signeddelegation' || 
+                      lower === 'true' || lower === 'active' || lower === 'enabled';
+    }
+  }
+  
+  // ==================== 正则后备提取 (当标准解析失败时) ====================
+  
+  // 日期正则模式 (支持多种格式)
+  const datePatterns = [
+    // ISO 8601: 2025-05-19T07:29:45.086917Z
+    /(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)/,
+    // 标准格式: 2023-05-12 17:05:28
+    /(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/,
+    // 简短格式: 2023-05-12
+    /(\d{4}-\d{2}-\d{2})/,
+    // 欧洲格式: 12/05/2023 or 12.05.2023
+    /(\d{2}[\/\.]\d{2}[\/\.]\d{4})/,
+    // 文字格式: 12 May 2023
+    /(\d{1,2}\s+\w+\s+\d{4})/,
+  ];
+  
+  // 如果没有注册日期，尝试正则提取
+  if (!result.registrationDate) {
+    const creationPatterns = [
+      /Date de cr[ée]ation[:\s]+([^\r\n]+)/i,
+      /Cre(?:ated|ation)[:\s]+([^\r\n]+)/i,
+      /Registration[:\s]+(?:Date[:\s]+)?([^\r\n]+)/i,
+      /注册(?:日期|时间)[:\s]*([^\r\n]+)/i,
+    ];
+    
+    for (const pattern of creationPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const dateStr = match[1].trim();
+        for (const datePattern of datePatterns) {
+          const dateMatch = dateStr.match(datePattern);
+          if (dateMatch) {
+            result.registrationDate = dateMatch[1];
+            break;
+          }
+        }
+        if (result.registrationDate) break;
+        // 如果没有匹配日期格式，直接使用提取的值
+        if (!result.registrationDate && dateStr.length < 50) {
+          result.registrationDate = dateStr;
+        }
+      }
+      if (result.registrationDate) break;
+    }
+  }
+  
+  // 如果没有过期日期，尝试正则提取
+  if (!result.expirationDate) {
+    const expirationPatterns = [
+      /Date d['']expiration[:\s]+([^\r\n]+)/i,
+      /Expir(?:y|ation|es)[:\s]+(?:Date[:\s]+)?([^\r\n]+)/i,
+      /Valid Until[:\s]+([^\r\n]+)/i,
+      /(?:过期|到期)(?:日期|时间)[:\s]*([^\r\n]+)/i,
+    ];
+    
+    for (const pattern of expirationPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const dateStr = match[1].trim();
+        for (const datePattern of datePatterns) {
+          const dateMatch = dateStr.match(datePattern);
+          if (dateMatch) {
+            result.expirationDate = dateMatch[1];
+            break;
+          }
+        }
+        if (result.expirationDate) break;
+        if (!result.expirationDate && dateStr.length < 50) {
+          result.expirationDate = dateStr;
+        }
+      }
+      if (result.expirationDate) break;
+    }
+  }
+  
+  // 如果没有更新日期，尝试正则提取
+  if (!result.lastUpdated) {
+    const updatePatterns = [
+      /Derni[èe]re modification[:\s]+([^\r\n]+)/i,
+      /(?:Last\s+)?(?:Updated?|Modified)[:\s]+([^\r\n]+)/i,
+      /(?:最后|最近)(?:更新|修改)[:\s]*([^\r\n]+)/i,
+    ];
+    
+    for (const pattern of updatePatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const dateStr = match[1].trim();
+        for (const datePattern of datePatterns) {
+          const dateMatch = dateStr.match(datePattern);
+          if (dateMatch) {
+            result.lastUpdated = dateMatch[1];
+            break;
+          }
+        }
+        if (result.lastUpdated) break;
+        if (!result.lastUpdated && dateStr.length < 50) {
+          result.lastUpdated = dateStr;
+        }
+      }
+      if (result.lastUpdated) break;
+    }
+  }
+  
+  // 如果没有NS，尝试正则提取
+  if (result.nameServers.length === 0) {
+    const nsPatterns = [
+      /Serveur[s]? de noms[:\s]+([^\r\n]+)/gi,
+      /Name[s]?\s*Server[s]?[:\s]+([^\r\n]+)/gi,
+      /nserver[:\s]+([^\r\n]+)/gi,
+      /DNS[:\s]+([^\r\n]+)/gi,
+    ];
+    
+    for (const pattern of nsPatterns) {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        const ns = match[1].trim().toLowerCase();
+        if (ns && ns.includes('.') && !result.nameServers.includes(ns)) {
+          result.nameServers.push(ns);
+        }
+      }
+    }
+  }
+  
+  // 如果没有状态，尝试正则提取
+  if (result.status.length === 0) {
+    const statusPatterns = [
+      /Statut[:\s]+([^\r\n]+)/gi,
+      /Status[:\s]+([^\r\n]+)/gi,
+      /(?:状态|域名状态)[:\s]*([^\r\n]+)/gi,
+    ];
+    
+    for (const pattern of statusPatterns) {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        const status = match[1].trim().split(/\s+/)[0].replace(/http.*/i, '').trim();
+        if (status && !result.status.includes(status)) {
+          result.status.push(status);
+        }
       }
     }
   }
