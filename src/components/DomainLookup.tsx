@@ -26,12 +26,22 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // Trigger lookup when initialDomain changes or on mount with initialDomain
   useEffect(() => {
-    if (initialDomain && initialDomain !== domain) {
+    if (initialDomain) {
       setDomain(initialDomain);
+      // Always trigger lookup when we have an initial domain
       handleLookupWithDomain(initialDomain);
     }
   }, [initialDomain]);
+  
+  // Also trigger on component mount if we have an initialDomain
+  useEffect(() => {
+    if (initialDomain && !result && !loading && !error) {
+      handleLookupWithDomain(initialDomain);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const validateDomain = (input: string): boolean => {
     const domainRegex = /^[a-zA-Z0-9\u4e00-\u9fa5][a-zA-Z0-9\u4e00-\u9fa5-]{0,61}[a-zA-Z0-9\u4e00-\u9fa5]?\.[a-zA-Z\u4e00-\u9fa5]{2,}$/;
@@ -124,6 +134,7 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
           registrationDateFormatted: data.primary.registrationDateFormatted,
           expirationDateFormatted: data.primary.expirationDateFormatted,
           lastUpdatedFormatted: data.primary.lastUpdatedFormatted,
+          rawData: data.primary.rawData,
         };
         setResult(whoisData);
         

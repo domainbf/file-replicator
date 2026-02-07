@@ -5,9 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Info, Shield, Server, Copy, Check, ExternalLink, User, Globe, 
-  Lock, Calendar, Clock, AlertCircle 
+  Lock, Database
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 export interface WhoisData {
   domain: string;
@@ -37,13 +44,16 @@ export interface WhoisData {
   registrationDateFormatted?: string;
   expirationDateFormatted?: string;
   lastUpdatedFormatted?: string;
+  rawData?: any;
 }
 
 export interface PricingData {
   registerPrice?: number | null;
   renewPrice?: number | null;
   isPremium?: boolean;
-  currency?: string;
+  registerPriceUsd?: number | null;
+  renewPriceUsd?: number | null;
+  cached?: boolean;
 }
 
 interface DomainResultCardProps {
@@ -53,14 +63,20 @@ interface DomainResultCardProps {
 
 const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
   const [copiedNs, setCopiedNs] = useState<string | null>(null);
+  const [copiedJson, setCopiedJson] = useState(false);
   const { toast } = useToast();
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async (text: string, isJson = false) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopiedNs(text);
+      if (isJson) {
+        setCopiedJson(true);
+        setTimeout(() => setCopiedJson(false), 2000);
+      } else {
+        setCopiedNs(text);
+        setTimeout(() => setCopiedNs(null), 2000);
+      }
       toast({ description: '已复制到剪贴板' });
-      setTimeout(() => setCopiedNs(null), 2000);
     } catch {
       toast({ description: '复制失败', variant: 'destructive' });
     }
@@ -93,30 +109,86 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
   // Use translated status if available, otherwise use original
   const displayStatus = data.statusTranslated || data.status;
 
+  const rawJsonString = data.rawData ? JSON.stringify(data.rawData, null, 2) : '';
+
   return (
     <div className="space-y-4">
-      {/* Price Tags */}
-      <div className="flex flex-wrap items-center gap-4 text-sm">
-        <div className="flex items-center gap-1">
-          <span className="text-muted-foreground">溢价:</span>
-          <span className="font-medium">{pricing?.isPremium ? '是' : '否'}</span>
-        </div>
-        {pricing?.registerPrice !== null && pricing?.registerPrice !== undefined && (
+      {/* Price Tags Row: 注册: 续费: 溢价: 已注册 | 数据来源 */}
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+        <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-1">
             <span className="text-muted-foreground">注册:</span>
-            <span className="font-medium text-primary">¥{pricing.registerPrice}</span>
+            <span className="font-medium text-primary">
+              {pricing?.registerPrice ? `¥${pricing.registerPrice}` : '-'}
+            </span>
           </div>
-        )}
-        {pricing?.renewPrice !== null && pricing?.renewPrice !== undefined && (
           <div className="flex items-center gap-1">
             <span className="text-muted-foreground">续费:</span>
-            <span className="font-medium text-primary">¥{pricing.renewPrice}</span>
+            <span className="font-medium text-primary">
+              {pricing?.renewPrice ? `¥${pricing.renewPrice}` : '-'}
+            </span>
           </div>
-        )}
-        <div className="flex items-center gap-1">
-          <span className="text-muted-foreground">标签:</span>
+          <div className="flex items-center gap-1">
+            <span className="text-muted-foreground">溢价:</span>
+            <span className="font-medium">{pricing?.isPremium ? '是' : '否'}</span>
+          </div>
           <Badge variant="default" className="text-xs">已注册</Badge>
         </div>
+        
+        {/* Data Source - Clickable to show raw JSON */}
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+              <Database className="h-3 w-3" />
+              {data.source === 'rdap' ? 'RDAP' : 'WHOIS'}
+              {data.registrarIanaId && (
+                <span className="text-muted-foreground">#{data.registrarIanaId}</span>
+              )}
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                原始数据
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>协议: </span>
+                  <Badge variant={data.source === 'rdap' ? 'default' : 'secondary'}>
+                    {data.source === 'rdap' ? 'RDAP' : 'WHOIS'}
+                  </Badge>
+                  {data.registrarIanaId && (
+                    <>
+                      <span>IANA ID: </span>
+                      <span className="font-mono">{data.registrarIanaId}</span>
+                    </>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => copyToClipboard(rawJsonString, true)}
+                >
+                  {copiedJson ? (
+                    <Check className="h-3 w-3 text-success" />
+                  ) : (
+                    <Copy className="h-3 w-3" />
+                  )}
+                  复制JSON
+                </Button>
+              </div>
+              <div className="border rounded-lg bg-muted/30 p-4 overflow-auto max-h-[60vh]">
+                <pre className="text-xs font-mono whitespace-pre-wrap break-all">
+                  {rawJsonString || '暂无原始数据'}
+                </pre>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Main Card */}
@@ -217,6 +289,52 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
                 </div>
               </div>
 
+              {/* Registrant Info - Now on Standard tab */}
+              <div className="mt-6">
+                <h4 className="flex items-center gap-2 text-sm font-medium mb-3">
+                  <User className="h-4 w-4" />
+                  注册人信息
+                </h4>
+                {hasRegistrantInfo && !data.privacyProtection ? (
+                  <div className="border rounded-lg overflow-hidden">
+                    {data.registrant?.name && (
+                      <div className="flex border-b last:border-b-0">
+                        <div className="w-1/3 px-4 py-2 bg-muted/30 text-sm text-muted-foreground">姓名</div>
+                        <div className="flex-1 px-4 py-2 text-sm">{data.registrant.name}</div>
+                      </div>
+                    )}
+                    {data.registrant?.organization && (
+                      <div className="flex border-b last:border-b-0">
+                        <div className="w-1/3 px-4 py-2 bg-muted/30 text-sm text-muted-foreground">组织</div>
+                        <div className="flex-1 px-4 py-2 text-sm">{data.registrant.organization}</div>
+                      </div>
+                    )}
+                    {data.registrant?.country && (
+                      <div className="flex border-b last:border-b-0">
+                        <div className="w-1/3 px-4 py-2 bg-muted/30 text-sm text-muted-foreground">国家</div>
+                        <div className="flex-1 px-4 py-2 text-sm">{data.registrant.country}</div>
+                      </div>
+                    )}
+                    {data.registrant?.email && (
+                      <div className="flex">
+                        <div className="w-1/3 px-4 py-2 bg-muted/30 text-sm text-muted-foreground">邮箱</div>
+                        <div className="flex-1 px-4 py-2 text-sm">{data.registrant.email}</div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 p-4 bg-muted/30 rounded-lg">
+                    <Shield className="h-5 w-5 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      {data.privacyProtection 
+                        ? '注册人信息已启用隐私保护'
+                        : '注册人信息不可用'
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Domain Status */}
               {displayStatus.length > 0 && (
                 <div className="mt-6">
@@ -298,53 +416,7 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
             </TabsContent>
 
             <TabsContent value="data" className="space-y-4 mt-0">
-              {/* Registrant Info */}
-              <div>
-                <h4 className="flex items-center gap-2 text-sm font-medium mb-3">
-                  <User className="h-4 w-4" />
-                  注册人信息
-                </h4>
-                {hasRegistrantInfo && !data.privacyProtection ? (
-                  <div className="border rounded-lg overflow-hidden">
-                    {data.registrant?.name && (
-                      <div className="flex border-b last:border-b-0">
-                        <div className="w-1/3 px-4 py-2 bg-muted/30 text-sm text-muted-foreground">姓名</div>
-                        <div className="flex-1 px-4 py-2 text-sm">{data.registrant.name}</div>
-                      </div>
-                    )}
-                    {data.registrant?.organization && (
-                      <div className="flex border-b last:border-b-0">
-                        <div className="w-1/3 px-4 py-2 bg-muted/30 text-sm text-muted-foreground">组织</div>
-                        <div className="flex-1 px-4 py-2 text-sm">{data.registrant.organization}</div>
-                      </div>
-                    )}
-                    {data.registrant?.country && (
-                      <div className="flex border-b last:border-b-0">
-                        <div className="w-1/3 px-4 py-2 bg-muted/30 text-sm text-muted-foreground">国家</div>
-                        <div className="flex-1 px-4 py-2 text-sm">{data.registrant.country}</div>
-                      </div>
-                    )}
-                    {data.registrant?.email && (
-                      <div className="flex">
-                        <div className="w-1/3 px-4 py-2 bg-muted/30 text-sm text-muted-foreground">邮箱</div>
-                        <div className="flex-1 px-4 py-2 text-sm">{data.registrant.email}</div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 p-4 bg-muted/30 rounded-lg">
-                    <Shield className="h-5 w-5 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                      {data.privacyProtection 
-                        ? '注册人信息已启用隐私保护'
-                        : '注册人信息不可用'
-                      }
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Raw Status */}
+              {/* Raw Status Codes */}
               <div>
                 <h4 className="flex items-center gap-2 text-sm font-medium mb-3">
                   <Info className="h-4 w-4" />
@@ -361,27 +433,31 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
                 </div>
               </div>
 
-              {/* Metadata */}
+              {/* Raw JSON Data */}
               <div>
-                <h4 className="flex items-center gap-2 text-sm font-medium mb-3">
-                  <Globe className="h-4 w-4" />
-                  数据来源
-                </h4>
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="flex border-b">
-                    <div className="w-1/3 px-4 py-2 bg-muted/30 text-sm text-muted-foreground">协议</div>
-                    <div className="flex-1 px-4 py-2">
-                      <Badge variant={data.source === 'rdap' ? 'default' : 'secondary'}>
-                        {data.source === 'rdap' ? 'RDAP' : 'WHOIS'}
-                      </Badge>
-                    </div>
-                  </div>
-                  {data.registrarIanaId && (
-                    <div className="flex">
-                      <div className="w-1/3 px-4 py-2 bg-muted/30 text-sm text-muted-foreground">IANA ID</div>
-                      <div className="flex-1 px-4 py-2 text-sm">{data.registrarIanaId}</div>
-                    </div>
-                  )}
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="flex items-center gap-2 text-sm font-medium">
+                    <Database className="h-4 w-4" />
+                    原始JSON数据
+                  </h4>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1 text-xs"
+                    onClick={() => copyToClipboard(rawJsonString, true)}
+                  >
+                    {copiedJson ? (
+                      <Check className="h-3 w-3 text-success" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                    复制
+                  </Button>
+                </div>
+                <div className="border rounded-lg bg-muted/20 p-4 overflow-auto max-h-[400px]">
+                  <pre className="text-xs font-mono whitespace-pre-wrap break-all">
+                    {rawJsonString || '暂无原始数据'}
+                  </pre>
                 </div>
               </div>
             </TabsContent>

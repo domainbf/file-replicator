@@ -487,13 +487,14 @@ async function queryRdap(domain: string): Promise<any> {
   return await response.json();
 }
 
-function parseRdapResponse(data: RdapResponse): any {
+function parseRdapResponse(data: RdapResponse, rawRdap: any): any {
   const result: any = {
     domain: data.ldhName || data.unicodeName || '',
     status: data.status || [],
     nameServers: (data.nameservers || []).map(ns => ns.ldhName || ns.unicodeName).filter(Boolean),
     dnssec: data.secureDNS?.delegationSigned || false,
     source: 'rdap',
+    rawData: rawRdap, // Include raw RDAP data
   };
   
   // Parse events
@@ -548,57 +549,47 @@ function parseRdapResponse(data: RdapResponse): any {
 
 // Query pricing API from api.tian.hu
 async function queryPricing(domain: string): Promise<any> {
-  // Try multiple API endpoints for pricing
-  const endpoints = [
-    `https://api.tian.hu/api/domain/price?domain=${encodeURIComponent(domain)}`,
-    `https://api.tian.hu/v1/domain/price?domain=${encodeURIComponent(domain)}`,
-    `https://api.tian.hu/domain/check?domain=${encodeURIComponent(domain)}`,
-  ];
+  const url = `https://api.tian.hu/pricing/${encodeURIComponent(domain)}`;
   
-  for (const url of endpoints) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      
-      const response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'DomainLookup/1.0'
-        }
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Pricing API response:', JSON.stringify(data));
-        
-        // Skip if we got an error response
-        if (data.code && data.code !== 200) continue;
-        
-        // Handle various response formats
-        const pricing = data.data || data;
-        
-        const registerPrice = pricing.register_price || pricing.registerPrice || pricing.price || pricing.register || null;
-        const renewPrice = pricing.renew_price || pricing.renewPrice || pricing.renew || null;
-        
-        // Only return if we have at least one price
-        if (registerPrice || renewPrice) {
-          return {
-            registerPrice,
-            renewPrice,
-            isPremium: pricing.is_premium || pricing.isPremium || pricing.premium || false,
-            currency: pricing.currency || 'CNY',
-          };
-        }
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    console.log(`Querying pricing API: ${url}`);
+    
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'DomainLookup/1.0',
+        'lang': 'zh'
       }
-    } catch (error) {
-      console.log('Pricing API failed for', url, ':', error);
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Pricing API response:', JSON.stringify(data));
+      
+      // api.tian.hu /pricing/{domain} returns:
+      // premium, register, renew, register_usd, renew_usd, cached
+      return {
+        registerPrice: data.register || null,
+        renewPrice: data.renew || null,
+        isPremium: data.premium || false,
+        registerPriceUsd: data.register_usd || null,
+        renewPriceUsd: data.renew_usd || null,
+        cached: data.cached || false,
+      };
+    } else {
+      console.log(`Pricing API returned ${response.status}`);
+      return null;
     }
+  } catch (error) {
+    console.log('Pricing API failed:', error);
+    return null;
   }
-  
-  return null;
 }
 
 serve(async (req) => {
@@ -632,7 +623,7 @@ serve(async (req) => {
     const [rdapResult, pricingResult] = await Promise.allSettled([
       (async () => {
         const rdapData = await queryRdap(normalizedDomain);
-        return parseRdapResponse(rdapData);
+        return parseRdapResponse(rdapData, rdapData);
       })(),
       queryPricing(normalizedDomain)
     ]);
