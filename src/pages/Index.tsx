@@ -1,10 +1,24 @@
-import DomainLookup from '@/components/DomainLookup';
-import { Sun, Moon, Languages } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import DomainLookup from '@/components/DomainLookup';
+import QueryHistory from '@/components/QueryHistory';
+import Favorites from '@/components/Favorites';
+import { useAuth } from '@/hooks/useAuth';
+import { Sun, Moon, Languages, User, LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const Index = () => {
   const [isDark, setIsDark] = useState(false);
+  const [selectedDomain, setSelectedDomain] = useState('');
+  const [favoriteRefresh, setFavoriteRefresh] = useState(0);
+  const { user, loading, signOut } = useAuth();
 
   useEffect(() => {
     if (isDark) {
@@ -14,9 +28,17 @@ const Index = () => {
     }
   }, [isDark]);
 
+  const handleSelectDomain = (domain: string) => {
+    setSelectedDomain(domain);
+  };
+
+  const handleFavoriteAdded = () => {
+    setFavoriteRefresh(prev => prev + 1);
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <div className="container max-w-2xl mx-auto px-4 py-8 flex-1">
+      <div className="container max-w-6xl mx-auto px-4 py-8 flex-1">
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div className="space-y-2">
@@ -37,16 +59,57 @@ const Index = () => {
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
+            
+            {loading ? null : user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-9 w-9">
+                    <User className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+                    {user.email}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={signOut} className="text-destructive">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    退出登录
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/auth">登录</Link>
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* Main Lookup Component */}
-        <DomainLookup />
+        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Lookup Component */}
+          <div className="lg:col-span-2">
+            <DomainLookup 
+              initialDomain={selectedDomain} 
+              onFavoriteAdded={handleFavoriteAdded}
+            />
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            <QueryHistory onSelectDomain={handleSelectDomain} />
+            <Favorites 
+              onSelectDomain={handleSelectDomain} 
+              refreshTrigger={favoriteRefresh}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Footer */}
       <footer className="mt-auto border-t bg-background">
-        <div className="container max-w-2xl mx-auto px-4 py-6">
+        <div className="container max-w-6xl mx-auto px-4 py-6">
           <p className="text-xs text-muted-foreground text-center">
             © 2026 RDAP Domain Lookup. All rights reserved.
           </p>
