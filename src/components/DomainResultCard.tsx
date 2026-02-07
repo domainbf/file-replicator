@@ -5,17 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Info, Shield, Server, Copy, Check, ExternalLink, User, Globe, 
-  Lock, Database, ShieldOff
+  Lock, Database
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/hooks/useLanguage';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import ShareDialog from './ShareDialog';
 
 export interface WhoisData {
   domain: string;
@@ -148,60 +142,11 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
           <Badge variant="default" className="text-xs">{t('pricing.registered')}</Badge>
         </div>
         
-        {/* Data Source */}
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs shrink-0">
-              <Database className="h-3 w-3" />
-              {data.source === 'rdap' ? 'RDAP' : 'WHOIS'}
-              {data.registrarIanaId && (
-                <span className="text-muted-foreground">#{data.registrarIanaId}</span>
-              )}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[80vh]">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Globe className="h-4 w-4" />
-                {t('source.rawData')}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>{t('source.protocol')}: </span>
-                  <Badge variant={data.source === 'rdap' ? 'default' : 'secondary'}>
-                    {data.source === 'rdap' ? 'RDAP' : 'WHOIS'}
-                  </Badge>
-                  {data.registrarIanaId && (
-                    <>
-                      <span>{t('source.ianaId')}: </span>
-                      <span className="font-mono">{data.registrarIanaId}</span>
-                    </>
-                  )}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={() => copyToClipboard(rawJsonString, true)}
-                >
-                  {copiedJson ? (
-                    <Check className="h-3 w-3 text-success" />
-                  ) : (
-                    <Copy className="h-3 w-3" />
-                  )}
-                  {t('source.copyJson')}
-                </Button>
-              </div>
-              <div className="border rounded-lg bg-muted/30 p-4 overflow-auto max-h-[60vh]">
-                <pre className="text-xs font-mono whitespace-pre-wrap break-all">
-                  {rawJsonString || t('misc.noData')}
-                </pre>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Data Source - only show RDAP/WHOIS without IANA ID */}
+        <Badge variant="outline" className="shrink-0 gap-1.5 text-xs h-7 px-2.5">
+          <Database className="h-3 w-3" />
+          {data.source === 'rdap' ? 'RDAP' : 'WHOIS'}
+        </Badge>
       </div>
 
       {/* Main Card */}
@@ -218,10 +163,13 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
                 <Info className="h-4 w-4" />
                 {t('domain.info')}
               </h3>
-              <TabsList className="grid grid-cols-2 w-auto h-8">
-                <TabsTrigger value="standard" className="px-3 text-xs h-7">{t('domain.standard')}</TabsTrigger>
-                <TabsTrigger value="data" className="px-3 text-xs h-7">{t('domain.data')}</TabsTrigger>
-              </TabsList>
+              <div className="flex items-center gap-2">
+                <TabsList className="grid grid-cols-2 w-auto h-8">
+                  <TabsTrigger value="standard" className="px-3 text-xs h-7">{t('domain.standard')}</TabsTrigger>
+                  <TabsTrigger value="data" className="px-3 text-xs h-7">{t('domain.data')}</TabsTrigger>
+                </TabsList>
+                <ShareDialog data={data} pricing={pricing} />
+              </div>
             </div>
 
             <TabsContent value="standard" className="space-y-0 mt-0">
