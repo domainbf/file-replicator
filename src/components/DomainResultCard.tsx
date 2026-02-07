@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Info, Shield, Server, Copy, Check, ExternalLink, User, Globe, 
-  Lock, Database
+  Lock, Database, ShieldOff
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/hooks/useLanguage';
 import {
   Dialog,
   DialogContent,
@@ -33,7 +34,6 @@ export interface WhoisData {
   dnssec: boolean;
   lastUpdated: string;
   source: 'rdap' | 'whois';
-  // Enhanced fields
   registrarWebsite?: string;
   registrarIanaId?: string;
   dnsProvider?: { name: string; website: string };
@@ -65,6 +65,7 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
   const [copiedNs, setCopiedNs] = useState<string | null>(null);
   const [copiedJson, setCopiedJson] = useState(false);
   const { toast } = useToast();
+  const { t, language } = useLanguage();
 
   const copyToClipboard = async (text: string, isJson = false) => {
     try {
@@ -76,9 +77,9 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
         setCopiedNs(text);
         setTimeout(() => setCopiedNs(null), 2000);
       }
-      toast({ description: '已复制到剪贴板' });
+      toast({ description: t('misc.copySuccess') });
     } catch {
-      toast({ description: '复制失败', variant: 'destructive' });
+      toast({ description: t('misc.copyFailed'), variant: 'destructive' });
     }
   };
 
@@ -86,7 +87,7 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
     if (!dateStr || dateStr === 'N/A') return 'N/A';
     try {
       const date = new Date(dateStr);
-      return date.toLocaleDateString('zh-CN', {
+      return date.toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
@@ -103,42 +104,47 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
     return 'text-success';
   };
 
+  const getRemainingDaysText = (days: number) => {
+    if (language === 'zh') {
+      return `剩余${days}天`;
+    }
+    return `${days} days`;
+  };
+
   const hasRegistrantInfo = data.registrant && 
     (data.registrant.name || data.registrant.organization || data.registrant.country);
 
-  // Use translated status if available, otherwise use original
   const displayStatus = data.statusTranslated || data.status;
-
   const rawJsonString = data.rawData ? JSON.stringify(data.rawData, null, 2) : '';
 
   return (
     <div className="space-y-4">
-      {/* Price Tags Row: 注册: 续费: 溢价: 已注册 | 数据来源 */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-1">
-            <span className="text-muted-foreground">注册:</span>
-            <span className="font-medium text-primary">
+      {/* Price Tags Row */}
+      <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 text-sm">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="whitespace-nowrap">
+            <span className="text-muted-foreground">{t('pricing.register')}:</span>
+            <span className="font-medium text-primary ml-1">
               {pricing?.registerPrice ? `¥${pricing.registerPrice}` : '-'}
             </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-muted-foreground">续费:</span>
-            <span className="font-medium text-primary">
+          </span>
+          <span className="whitespace-nowrap">
+            <span className="text-muted-foreground">{t('pricing.renew')}:</span>
+            <span className="font-medium text-primary ml-1">
               {pricing?.renewPrice ? `¥${pricing.renewPrice}` : '-'}
             </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-muted-foreground">溢价:</span>
-            <span className="font-medium">{pricing?.isPremium ? '是' : '否'}</span>
-          </div>
-          <Badge variant="default" className="text-xs">已注册</Badge>
+          </span>
+          <span className="whitespace-nowrap">
+            <span className="text-muted-foreground">{t('pricing.premium')}:</span>
+            <span className="font-medium ml-1">{pricing?.isPremium ? t('pricing.yes') : t('pricing.no')}</span>
+          </span>
+          <Badge variant="default" className="text-xs">{t('pricing.registered')}</Badge>
         </div>
         
-        {/* Data Source - Clickable to show raw JSON */}
+        {/* Data Source */}
         <Dialog>
           <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+            <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs shrink-0">
               <Database className="h-3 w-3" />
               {data.source === 'rdap' ? 'RDAP' : 'WHOIS'}
               {data.registrarIanaId && (
@@ -150,19 +156,19 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Globe className="h-4 w-4" />
-                原始数据
+                {t('source.rawData')}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>协议: </span>
+                  <span>{t('source.protocol')}: </span>
                   <Badge variant={data.source === 'rdap' ? 'default' : 'secondary'}>
                     {data.source === 'rdap' ? 'RDAP' : 'WHOIS'}
                   </Badge>
                   {data.registrarIanaId && (
                     <>
-                      <span>IANA ID: </span>
+                      <span>{t('source.ianaId')}: </span>
                       <span className="font-mono">{data.registrarIanaId}</span>
                     </>
                   )}
@@ -178,12 +184,12 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
                   ) : (
                     <Copy className="h-3 w-3" />
                   )}
-                  复制JSON
+                  {t('source.copyJson')}
                 </Button>
               </div>
               <div className="border rounded-lg bg-muted/30 p-4 overflow-auto max-h-[60vh]">
                 <pre className="text-xs font-mono whitespace-pre-wrap break-all">
-                  {rawJsonString || '暂无原始数据'}
+                  {rawJsonString || t('misc.noData')}
                 </pre>
               </div>
             </div>
@@ -193,21 +199,21 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
 
       {/* Main Card */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-5 pb-5">
           {/* Domain Name Header */}
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold uppercase tracking-wide">{data.domain}</h2>
+          <div className="mb-4">
+            <h2 className="text-xl font-bold uppercase tracking-wide">{data.domain}</h2>
           </div>
 
           <Tabs defaultValue="standard" className="w-full">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="flex items-center gap-2 text-base font-medium">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="flex items-center gap-2 text-sm font-medium">
                 <Info className="h-4 w-4" />
-                域名信息
+                {t('domain.info')}
               </h3>
-              <TabsList className="grid grid-cols-2 w-auto">
-                <TabsTrigger value="standard" className="px-4">标准</TabsTrigger>
-                <TabsTrigger value="data" className="px-4">数据</TabsTrigger>
+              <TabsList className="grid grid-cols-2 w-auto h-8">
+                <TabsTrigger value="standard" className="px-3 text-xs h-7">{t('domain.standard')}</TabsTrigger>
+                <TabsTrigger value="data" className="px-3 text-xs h-7">{t('domain.data')}</TabsTrigger>
               </TabsList>
             </div>
 
@@ -215,36 +221,35 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
               <div className="border rounded-lg overflow-hidden">
                 {/* Registrar */}
                 <div className="flex border-b">
-                  <div className="w-1/3 px-4 py-3 bg-muted/30 text-sm text-muted-foreground">
-                    注册商
+                  <div className="w-28 shrink-0 px-3 py-2.5 bg-muted/30 text-xs text-muted-foreground flex items-center">
+                    {t('domain.registrar')}
                   </div>
-                  <div className="flex-1 px-4 py-3 flex items-center justify-between">
-                    <span className="text-sm font-medium">{data.registrar || 'N/A'}</span>
+                  <div className="flex-1 px-3 py-2.5 flex items-center justify-between gap-2 min-w-0">
+                    <span className="text-sm font-medium truncate">{data.registrar || 'N/A'}</span>
                     {data.registrarWebsite && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 gap-1 text-xs"
+                      <Badge 
+                        variant="outline" 
+                        className="shrink-0 cursor-pointer hover:bg-accent gap-1 text-xs h-6"
                         onClick={() => window.open(data.registrarWebsite, '_blank')}
                       >
                         <ExternalLink className="h-3 w-3" />
-                        官网
-                      </Button>
+                        {t('domain.website')}
+                      </Badge>
                     )}
                   </div>
                 </div>
 
                 {/* Registration Date */}
                 <div className="flex border-b">
-                  <div className="w-1/3 px-4 py-3 bg-muted/30 text-sm text-muted-foreground">
-                    注册时间
+                  <div className="w-28 shrink-0 px-3 py-2.5 bg-muted/30 text-xs text-muted-foreground flex items-center">
+                    {t('domain.registrationDate')}
                   </div>
-                  <div className="flex-1 px-4 py-3 flex items-center gap-2">
+                  <div className="flex-1 px-3 py-2.5 flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium">
                       {data.registrationDateFormatted || formatDate(data.registrationDate)}
                     </span>
                     {data.ageLabel && (
-                      <Badge variant="secondary" className="text-xs bg-success/10 text-success border-success/20">
+                      <Badge variant="secondary" className="text-xs bg-success/10 text-success border-success/20 shrink-0">
                         {data.ageLabel}
                       </Badge>
                     )}
@@ -253,15 +258,15 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
 
                 {/* Last Updated */}
                 <div className="flex border-b">
-                  <div className="w-1/3 px-4 py-3 bg-muted/30 text-sm text-muted-foreground">
-                    更新时间
+                  <div className="w-28 shrink-0 px-3 py-2.5 bg-muted/30 text-xs text-muted-foreground flex items-center">
+                    {t('domain.updateDate')}
                   </div>
-                  <div className="flex-1 px-4 py-3 flex items-center gap-2">
+                  <div className="flex-1 px-3 py-2.5 flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium">
                       {data.lastUpdatedFormatted || formatDate(data.lastUpdated)}
                     </span>
                     {data.updateLabel && (
-                      <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-primary/20">
+                      <Badge variant="secondary" className="text-xs shrink-0">
                         {data.updateLabel}
                       </Badge>
                     )}
@@ -270,79 +275,88 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
 
                 {/* Expiration Date */}
                 <div className="flex">
-                  <div className="w-1/3 px-4 py-3 bg-muted/30 text-sm text-muted-foreground">
-                    过期时间
+                  <div className="w-28 shrink-0 px-3 py-2.5 bg-muted/30 text-xs text-muted-foreground flex items-center">
+                    {t('domain.expirationDate')}
                   </div>
-                  <div className="flex-1 px-4 py-3 flex items-center gap-2">
+                  <div className="flex-1 px-3 py-2.5 flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium">
                       {data.expirationDateFormatted || formatDate(data.expirationDate)}
                     </span>
                     {data.remainingDays !== undefined && data.remainingDays !== null && (
                       <Badge 
                         variant="secondary" 
-                        className={`text-xs ${getRemainingDaysColor(data.remainingDays)}`}
+                        className={`text-xs shrink-0 ${getRemainingDaysColor(data.remainingDays)}`}
                       >
-                        剩余{data.remainingDays}天
+                        {getRemainingDaysText(data.remainingDays)}
                       </Badge>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* Registrant Info - Now on Standard tab */}
-              <div className="mt-6">
-                <h4 className="flex items-center gap-2 text-sm font-medium mb-3">
+              {/* Registrant Info */}
+              <div className="mt-5">
+                <h4 className="flex items-center gap-2 text-sm font-medium mb-2">
                   <User className="h-4 w-4" />
-                  注册人信息
+                  {t('registrant.title')}
                 </h4>
                 {hasRegistrantInfo && !data.privacyProtection ? (
                   <div className="border rounded-lg overflow-hidden">
                     {data.registrant?.name && (
                       <div className="flex border-b last:border-b-0">
-                        <div className="w-1/3 px-4 py-2 bg-muted/30 text-sm text-muted-foreground">姓名</div>
-                        <div className="flex-1 px-4 py-2 text-sm">{data.registrant.name}</div>
+                        <div className="w-28 shrink-0 px-3 py-2 bg-muted/30 text-xs text-muted-foreground">{t('registrant.name')}</div>
+                        <div className="flex-1 px-3 py-2 text-sm">{data.registrant.name}</div>
                       </div>
                     )}
                     {data.registrant?.organization && (
                       <div className="flex border-b last:border-b-0">
-                        <div className="w-1/3 px-4 py-2 bg-muted/30 text-sm text-muted-foreground">组织</div>
-                        <div className="flex-1 px-4 py-2 text-sm">{data.registrant.organization}</div>
+                        <div className="w-28 shrink-0 px-3 py-2 bg-muted/30 text-xs text-muted-foreground">{t('registrant.organization')}</div>
+                        <div className="flex-1 px-3 py-2 text-sm">{data.registrant.organization}</div>
                       </div>
                     )}
                     {data.registrant?.country && (
                       <div className="flex border-b last:border-b-0">
-                        <div className="w-1/3 px-4 py-2 bg-muted/30 text-sm text-muted-foreground">国家</div>
-                        <div className="flex-1 px-4 py-2 text-sm">{data.registrant.country}</div>
+                        <div className="w-28 shrink-0 px-3 py-2 bg-muted/30 text-xs text-muted-foreground">{t('registrant.country')}</div>
+                        <div className="flex-1 px-3 py-2 text-sm">{data.registrant.country}</div>
                       </div>
                     )}
                     {data.registrant?.email && (
                       <div className="flex">
-                        <div className="w-1/3 px-4 py-2 bg-muted/30 text-sm text-muted-foreground">邮箱</div>
-                        <div className="flex-1 px-4 py-2 text-sm">{data.registrant.email}</div>
+                        <div className="w-28 shrink-0 px-3 py-2 bg-muted/30 text-xs text-muted-foreground">{t('registrant.email')}</div>
+                        <div className="flex-1 px-3 py-2 text-sm">{data.registrant.email}</div>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 p-4 bg-muted/30 rounded-lg">
-                    <Shield className="h-5 w-5 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                      {data.privacyProtection 
-                        ? '注册人信息已启用隐私保护'
-                        : '注册人信息不可用'
-                      }
-                    </p>
+                  <div className="flex items-center gap-3 p-3 bg-muted/20 rounded-lg border border-dashed">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-muted/50">
+                      <ShieldOff className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {data.privacyProtection 
+                          ? t('registrant.privacyProtected')
+                          : t('registrant.unavailable')
+                        }
+                      </p>
+                      {data.privacyProtection && (
+                        <p className="text-xs text-muted-foreground/70 mt-0.5">
+                          WHOIS Privacy Protection
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
 
               {/* Domain Status */}
               {displayStatus.length > 0 && (
-                <div className="mt-6">
-                  <h4 className="flex items-center gap-2 text-sm font-medium mb-3">
+                <div className="mt-5">
+                  <h4 className="flex items-center gap-2 text-sm font-medium mb-2">
                     <Shield className="h-4 w-4" />
-                    域名状态
+                    {t('status.title')}
                   </h4>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {displayStatus.map((status, index) => (
                       <Badge key={index} variant="outline" className="text-xs">
                         {status}
@@ -353,50 +367,49 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
               )}
 
               {/* DNSSEC & Privacy */}
-              <div className="mt-6 pt-4 border-t space-y-3">
+              <div className="mt-5 pt-4 border-t space-y-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground">DNSSEC:</span>
+                  <span className="text-muted-foreground">{t('security.dnssec')}:</span>
                   <Badge variant={data.dnssec ? 'default' : 'secondary'} className="text-xs">
-                    {data.dnssec ? '已启用' : '未启用'}
+                    {data.dnssec ? t('security.enabled') : t('security.disabled')}
                   </Badge>
                 </div>
                 
                 {data.privacyProtection && (
                   <div className="flex items-center gap-2 text-sm text-primary">
                     <Lock className="h-4 w-4" />
-                    <span>WHOIS隐私保护已启用</span>
+                    <span>{t('security.privacyProtection')}</span>
                   </div>
                 )}
               </div>
 
               {/* Name Servers */}
-              <div className="mt-6 pt-4 border-t">
-                <div className="flex items-center justify-between mb-3">
+              <div className="mt-5 pt-4 border-t">
+                <div className="flex items-center justify-between mb-2">
                   <h4 className="flex items-center gap-2 text-sm font-medium">
                     <Server className="h-4 w-4" />
-                    域名服务器
+                    {t('dns.title')}
                   </h4>
                   {data.dnsProvider && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 gap-1 text-xs text-muted-foreground"
+                    <Badge 
+                      variant="outline" 
+                      className="cursor-pointer hover:bg-accent gap-1 text-xs h-6"
                       onClick={() => window.open(data.dnsProvider?.website, '_blank')}
                     >
-                      {data.dnsProvider.name}
                       <ExternalLink className="h-3 w-3" />
-                    </Button>
+                      {data.dnsProvider.name}
+                    </Badge>
                   )}
                 </div>
                 {data.nameServers.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {data.nameServers.map((ns, index) => (
                       <div key={index} className="flex items-center justify-between p-2 border rounded-lg bg-muted/20">
-                        <span className="text-sm font-mono">NS{index + 1}: {ns.toUpperCase()}</span>
+                        <span className="text-xs font-mono">NS{index + 1}: {ns.toUpperCase()}</span>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 gap-1 text-xs"
+                          className="h-6 gap-1 text-xs px-2"
                           onClick={() => copyToClipboard(ns)}
                         >
                           {copiedNs === ns ? (
@@ -404,13 +417,13 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
                           ) : (
                             <Copy className="h-3 w-3" />
                           )}
-                          复制
+                          {t('dns.copy')}
                         </Button>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">暂无域名服务器信息</p>
+                  <p className="text-sm text-muted-foreground">{t('dns.noServers')}</p>
                 )}
               </div>
             </TabsContent>
@@ -418,9 +431,9 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
             <TabsContent value="data" className="space-y-4 mt-0">
               {/* Raw Status Codes */}
               <div>
-                <h4 className="flex items-center gap-2 text-sm font-medium mb-3">
+                <h4 className="flex items-center gap-2 text-sm font-medium mb-2">
                   <Info className="h-4 w-4" />
-                  原始状态码
+                  {t('status.raw')}
                 </h4>
                 <div className="border rounded-lg p-3 bg-muted/20">
                   <div className="space-y-1">
@@ -435,15 +448,15 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
 
               {/* Raw JSON Data */}
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-2">
                   <h4 className="flex items-center gap-2 text-sm font-medium">
                     <Database className="h-4 w-4" />
-                    原始JSON数据
+                    {t('status.rawJson')}
                   </h4>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 gap-1 text-xs"
+                    className="h-6 gap-1 text-xs"
                     onClick={() => copyToClipboard(rawJsonString, true)}
                   >
                     {copiedJson ? (
@@ -451,12 +464,12 @@ const DomainResultCard = ({ data, pricing }: DomainResultCardProps) => {
                     ) : (
                       <Copy className="h-3 w-3" />
                     )}
-                    复制
+                    {t('dns.copy')}
                   </Button>
                 </div>
-                <div className="border rounded-lg bg-muted/20 p-4 overflow-auto max-h-[400px]">
+                <div className="border rounded-lg bg-muted/20 p-3 overflow-auto max-h-[350px]">
                   <pre className="text-xs font-mono whitespace-pre-wrap break-all">
-                    {rawJsonString || '暂无原始数据'}
+                    {rawJsonString || t('misc.noData')}
                   </pre>
                 </div>
               </div>

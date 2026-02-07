@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -21,18 +22,15 @@ interface FavoritesProps {
   refreshTrigger?: number;
 }
 
-// Parse date string to Date object
 function parseExpirationDate(dateStr: string | null): Date | null {
   if (!dateStr) return null;
   
-  // Try parsing Chinese format: 2026年05月01日
   const chineseMatch = dateStr.match(/(\d{4})年(\d{2})月(\d{2})日/);
   if (chineseMatch) {
     const [, year, month, day] = chineseMatch;
     return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
   }
   
-  // Try parsing standard formats
   const date = new Date(dateStr);
   if (!isNaN(date.getTime())) {
     return date;
@@ -41,7 +39,6 @@ function parseExpirationDate(dateStr: string | null): Date | null {
   return null;
 }
 
-// Calculate remaining days
 function getRemainingDays(dateStr: string | null): number | null {
   const expDate = parseExpirationDate(dateStr);
   if (!expDate) return null;
@@ -51,28 +48,28 @@ function getRemainingDays(dateStr: string | null): number | null {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
 
-// Get expiration badge color and text
-function getExpirationBadge(remainingDays: number | null): { variant: 'destructive' | 'secondary' | 'default'; text: string; className?: string } | null {
+function getExpirationBadge(remainingDays: number | null, t: (key: string) => string): { variant: 'destructive' | 'secondary' | 'default'; text: string; className?: string } | null {
   if (remainingDays === null) return null;
   
   if (remainingDays <= 0) {
-    return { variant: 'destructive', text: '已过期' };
+    return { variant: 'destructive', text: t('expiration.expired') };
   }
   if (remainingDays <= 30) {
-    return { variant: 'destructive', text: `剩余${remainingDays}天` };
+    return { variant: 'destructive', text: `${remainingDays}d` };
   }
   if (remainingDays <= 90) {
-    return { variant: 'secondary', text: `剩余${remainingDays}天`, className: 'bg-warning/20 text-warning border-warning/30' };
+    return { variant: 'secondary', text: `${remainingDays}d`, className: 'bg-warning/20 text-warning border-warning/30' };
   }
   if (remainingDays <= 180) {
-    return { variant: 'secondary', text: `剩余${remainingDays}天` };
+    return { variant: 'secondary', text: `${remainingDays}d` };
   }
   
-  return null; // Don't show badge for domains with more than 180 days
+  return null;
 }
 
 const Favorites = ({ onSelectDomain, refreshTrigger }: FavoritesProps) => {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [expiringCount, setExpiringCount] = useState(0);
@@ -90,14 +87,12 @@ const Favorites = ({ onSelectDomain, refreshTrigger }: FavoritesProps) => {
     if (!error && data) {
       setFavorites(data);
       
-      // Count expiring domains (within 90 days)
       const expiring = data.filter(item => {
         const days = getRemainingDays(item.expiration_date);
         return days !== null && days <= 90;
       });
       setExpiringCount(expiring.length);
       
-      // Show notification for domains expiring soon
       if (expiring.length > 0) {
         const critical = expiring.filter(item => {
           const days = getRemainingDays(item.expiration_date);
@@ -106,8 +101,8 @@ const Favorites = ({ onSelectDomain, refreshTrigger }: FavoritesProps) => {
         
         if (critical.length > 0) {
           toast({
-            title: '域名到期提醒',
-            description: `您有 ${critical.length} 个域名将在30天内到期，请及时续费！`,
+            title: t('expiration.alert'),
+            description: t('expiration.alertMessage').replace('{count}', String(critical.length)),
             variant: 'destructive',
           });
         }
@@ -134,15 +129,15 @@ const Favorites = ({ onSelectDomain, refreshTrigger }: FavoritesProps) => {
   if (!user) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-medium">
             <Star className="h-4 w-4" />
-            收藏夹
+            {t('favorites.title')}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-4">
-            登录后可查看收藏
+          <p className="text-xs text-muted-foreground text-center py-3">
+            {t('favorites.loginRequired')}
           </p>
         </CardContent>
       </Card>
@@ -151,14 +146,14 @@ const Favorites = ({ onSelectDomain, refreshTrigger }: FavoritesProps) => {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between text-base">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center justify-between text-sm font-medium">
           <div className="flex items-center gap-2">
             <Star className="h-4 w-4" />
-            收藏夹
+            {t('favorites.title')}
           </div>
           {expiringCount > 0 && (
-            <Badge variant="destructive" className="gap-1">
+            <Badge variant="destructive" className="gap-1 text-xs h-5">
               <Bell className="h-3 w-3" />
               {expiringCount}
             </Badge>
@@ -167,19 +162,19 @@ const Favorites = ({ onSelectDomain, refreshTrigger }: FavoritesProps) => {
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="flex justify-center py-4">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <div className="flex justify-center py-3">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           </div>
         ) : favorites.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            暂无收藏
+          <p className="text-xs text-muted-foreground text-center py-3">
+            {t('favorites.empty')}
           </p>
         ) : (
-          <ScrollArea className="h-[300px]">
-            <div className="space-y-2">
+          <ScrollArea className="h-[250px]">
+            <div className="space-y-1.5">
               {favorites.map((item) => {
                 const remainingDays = getRemainingDays(item.expiration_date);
-                const expirationBadge = getExpirationBadge(remainingDays);
+                const expirationBadge = getExpirationBadge(remainingDays, t);
                 const isExpiring = remainingDays !== null && remainingDays <= 90;
                 
                 return (
@@ -190,44 +185,44 @@ const Favorites = ({ onSelectDomain, refreshTrigger }: FavoritesProps) => {
                     }`}
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <p className="font-medium text-sm truncate">{item.domain_name}</p>
                         {remainingDays !== null && remainingDays <= 30 && (
-                          <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />
+                          <AlertTriangle className="h-3.5 w-3.5 text-destructive flex-shrink-0" />
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-1.5 mt-0.5">
                         {item.expiration_date && (
-                          <p className="text-xs text-muted-foreground">
-                            到期: {item.expiration_date}
+                          <p className="text-xs text-muted-foreground truncate">
+                            {item.expiration_date}
                           </p>
                         )}
                         {expirationBadge && (
                           <Badge 
                             variant={expirationBadge.variant}
-                            className={`text-[10px] px-1.5 py-0 ${expirationBadge.className || ''}`}
+                            className={`text-[10px] px-1 py-0 h-4 ${expirationBadge.className || ''}`}
                           >
                             {expirationBadge.text}
                           </Badge>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 ml-2">
+                    <div className="flex items-center gap-0.5 ml-2">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8"
+                        className="h-7 w-7"
                         onClick={() => onSelectDomain(item.domain_name)}
                       >
-                        <Search className="h-4 w-4" />
+                        <Search className="h-3.5 w-3.5" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
                         onClick={() => handleDelete(item.id)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>
