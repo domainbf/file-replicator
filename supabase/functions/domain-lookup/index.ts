@@ -16,28 +16,80 @@ let whoisServerCache: Record<string, string> = {};
 let whoisCacheTime = 0;
 const WHOIS_CACHE_TTL = 3600000; // 1 hour
 
-// 已知不可用/超慢的 WHOIS 服务器 - 跳过这些直接用 HTTP 兜底
+// 已知不可用/超慢的 WHOIS 服务器 - 跳过这些直接用 RDAP 或 HTTP 兜底
 const SLOW_WHOIS_SERVERS = new Set([
-  'whois.pnina.ps',    // .ps - 经常连接被拒绝
-  'whois.nic.ps',
+  // 中东/非洲问题服务器
+  'whois.pnina.ps',    // .ps - 连接被拒绝
+  'whois.nic.ps',      // .ps - 备用
   'whois.nic.mm',      // .mm - 缅甸，超慢
   'whois.nic.ir',      // .ir - 伊朗，不稳定
   'whois.nic.kp',      // .kp - 朝鲜，不可达
   'whois.nic.cu',      // .cu - 古巴，不稳定
   'whois.nic.sy',      // .sy - 叙利亚，不稳定
+  'whois.nic.ly',      // .ly - 利比亚，不稳定
+  'whois.nic.sd',      // .sd - 苏丹，不稳定
+  'whois.nic.ye',      // .ye - 也门，不稳定
+  // 亚洲问题服务器
+  'whois.nic.lk',      // .lk - 斯里兰卡，超慢
+  'whois.nic.bd',      // .bd - 孟加拉，慢
+  'whois.nic.np',      // .np - 尼泊尔，慢
+  'whois.nic.af',      // .af - 阿富汗，不可达
+  'whois.nic.bt',      // .bt - 不丹，慢
+  // 非洲问题服务器
+  'whois.nic.ng',      // .ng - 尼日利亚，不稳定（备用服务器）
+  'whois.nic.kn',      // .kn - 圣基茨，慢
+  'whois.nic.gw',      // .gw - 几内亚比绍，不可达
+  'whois.nic.gn',      // .gn - 几内亚，不可达
+  'whois.nic.ml',      // .ml - 马里，慢
+  'whois.nic.bf',      // .bf - 布基纳法索，慢
+  'whois.nic.ne',      // .ne - 尼日尔，慢
+  'whois.nic.td',      // .td - 乍得，不可达
+  'whois.nic.cf',      // .cf - 中非，不可达
+  'whois.nic.cg',      // .cg - 刚果，慢
+  'whois.nic.cd',      // .cd - 刚果民主，慢
+  'whois.nic.ao',      // .ao - 安哥拉，慢
+  'whois.nic.mz',      // .mz - 莫桑比克，慢
+  'whois.nic.zw',      // .zw - 津巴布韦，慢
+  'whois.nic.et',      // .et - 埃塞俄比亚，慢
+  'whois.nic.er',      // .er - 厄立特里亚，不可达
+  'whois.nic.so',      // .so - 索马里，不可达
+  // 太平洋岛国问题服务器
+  'whois.nic.ki',      // .ki - 基里巴斯，慢
+  'whois.nic.nr',      // .nr - 瑙鲁，慢
+  'whois.nic.tv',      // .tv - 图瓦卢，有时慢
+  'whois.nic.vu',      // .vu - 瓦努阿图，慢
+  'whois.nic.sb',      // .sb - 所罗门群岛，慢
+  'whois.nic.pg',      // .pg - 巴布亚新几内亚，慢
 ]);
 
-// 快速 WHOIS 服务器 (响应通常 <2s)
+// 快速 WHOIS 服务器 (响应通常 <2s) - 使用更短超时
 const FAST_WHOIS_SERVERS = new Set([
-  'whois.verisign-grs.com',
+  // 顶级gTLD服务器
+  'whois.verisign-grs.com',  // .com/.net
+  'whois.pir.org',           // .org
+  'whois.nic.google',        // Google TLDs
+  'whois.cloudflare.com',    // Cloudflare
+  // 常见ccTLD快速服务器
   'whois.nic.io',
   'whois.nic.co',
   'whois.nic.ai',
   'whois.nic.me',
-  'whois.pir.org',
-  'whois.nic.google',
-  'whois.cloudflare.com',
   'whois.nic.net.ng',
+  'whois.afilias.net',
+  'whois.nic.uk',
+  'whois.nic.fr',
+  'whois.denic.de',
+  'whois.nic.ch',
+  'whois.sidn.nl',
+  'whois.nic.it',
+  'whois.jprs.jp',
+  'whois.kr',
+  'whois.twnic.net.tw',
+  'whois.hkirc.hk',
+  'whois.cnnic.cn',
+  'whois.auda.org.au',
+  'whois.cira.ca',
+  'whois.registro.br',
 ]);
 
 // ==================== 完整的域名状态码映射 (支持多语言) ====================
