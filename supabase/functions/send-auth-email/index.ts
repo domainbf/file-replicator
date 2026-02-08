@@ -1,7 +1,30 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@4.0.0";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY") as string);
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+
+// Send email using Resend API directly (no npm dependency)
+async function sendEmail(to: string, subject: string, html: string) {
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "RDAP WHOIS <noreply@x.rw>",
+      to: [to],
+      subject,
+      html,
+    }),
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Resend API error: ${response.status} - ${errorText}`);
+  }
+  
+  return await response.json();
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -540,12 +563,7 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error(`Unknown email type: ${type}`);
     }
 
-    const emailResponse = await resend.emails.send({
-      from: "RDAP WHOIS <noreply@x.rw>",
-      to: [email],
-      subject,
-      html,
-    });
+    const emailResponse = await sendEmail(email, subject, html);
 
     console.log("Email sent successfully:", emailResponse);
 
