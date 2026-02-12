@@ -185,8 +185,9 @@ const DomainLookup = ({ initialDomain, onFavoriteAdded, onDomainQueried }: Domai
         return;
       }
       
-      // 策略2: RDAP 失败，回退到云端 WHOIS 查询
-      console.log(`[Domain] Local RDAP failed, falling back to cloud WHOIS`);
+      // 策略2: RDAP 失败或 CORS 阻断，回退到云端查询 (RDAP+WHOIS)
+      const fallbackReason = rdapResult.corsBlocked ? 'CORS blocked' : 'RDAP failed';
+      console.log(`[Domain] ${fallbackReason}, falling back to cloud query`);
       
       const { data, error: fnError } = await supabase.functions.invoke('domain-lookup', {
         body: { 
