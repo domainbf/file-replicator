@@ -1214,7 +1214,7 @@ function isCcTld(tld: string): boolean {
   return tld.length === 2 && /^[a-z]{2}$/.test(tld.toLowerCase());
 }
 
-// 通过 TCP 端口 43 查询 WHOIS - 速度优化版
+// 通过 TCP 端口 43 查询 WHOIS - 连接稳定性增强版
 async function queryWhoisTcp(domain: string, server: string, timeout = 8000, queryFormat?: string): Promise<string | null> {
   // 跳过已知超慢/不可用的服务器
   if (SLOW_WHOIS_SERVERS.has(server)) {
@@ -1223,18 +1223,14 @@ async function queryWhoisTcp(domain: string, server: string, timeout = 8000, que
   }
   
   // 快速服务器使用更短超时
-  const effectiveTimeout = FAST_WHOIS_SERVERS.has(server) ? 5000 : timeout;
+  const effectiveTimeout = FAST_WHOIS_SERVERS.has(server) ? 4000 : Math.min(timeout, 6000);
   
   try {
     const query = queryFormat ? queryFormat.replace('%s', domain) : domain;
     console.log(`Querying WHOIS via TCP: ${server}:43 for ${domain} (timeout: ${effectiveTimeout}ms)`);
     
-    // 使用 Promise.race 实现超时
-    const connectPromise = Deno.connect({
-      hostname: server,
-      port: 43,
-    });
-    
+    // 使用 Promise.race 实现连接超时
+    const connectPromise = Deno.connect({ hostname: server, port: 43 });
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error('Connection timeout')), effectiveTimeout);
     });
@@ -1247,31 +1243,31 @@ async function queryWhoisTcp(domain: string, server: string, timeout = 8000, que
       return null;
     }
     
-    // 设置读取超时 (比连接超时稍长)
+    // 设置读取超时 - 比连接超时短，避免悬挂
+    const readTimeout = effectiveTimeout;
     const readTimeoutId = setTimeout(() => {
       try { conn.close(); } catch {}
-    }, effectiveTimeout + 2000);
+    }, readTimeout);
     
     // 发送查询
     const encoder = new TextEncoder();
-    const fullQuery = `${query}\r\n`;
-    await conn.write(encoder.encode(fullQuery));
+    await conn.write(encoder.encode(`${query}\r\n`));
     
     // 读取响应 - 使用更大的缓冲区减少读取次数
     const decoder = new TextDecoder('utf-8', { fatal: false });
     const chunks: string[] = [];
-    const buffer = new Uint8Array(16384); // 16KB 缓冲区
+    const buffer = new Uint8Array(32768); // 32KB 缓冲区
     
     try {
       while (true) {
         const bytesRead = await conn.read(buffer);
         if (bytesRead === null) break;
         chunks.push(decoder.decode(buffer.subarray(0, bytesRead), { stream: true }));
-        // 如果已经获取足够数据(>10KB)，提前退出
+        // 获取足够数据后提前退出
         const totalLen = chunks.reduce((a, b) => a + b.length, 0);
-        if (totalLen > 10000) break;
+        if (totalLen > 8000) break;
       }
-    } catch (e) {
+    } catch {
       // 连接关闭或读取完成
     }
     
@@ -1295,20 +1291,15 @@ async function queryWhoisTcp(domain: string, server: string, timeout = 8000, que
 async function queryWhoisWithFormats(domain: string, server: string, tld: string): Promise<string | null> {
   const formats = CCTLD_QUERY_FORMATS[tld] || ['%s'];
   
-  // 只尝试第一种格式，减少等待时间
-  const format = formats[0];
-  const response = await queryWhoisTcp(domain, server, 8000, format);
+  // 只尝试第一种格式
+  const response = await queryWhoisTcp(domain, server, 6000, formats[0]);
   
-  if (response && response.length > 50) {
-    return response;
-  }
+  if (response && response.length > 50) return response;
   
   // 如果第一种格式失败且有其他格式，快速尝试
   if (formats.length > 1 && !response) {
-    const response2 = await queryWhoisTcp(domain, server, 5000, formats[1]);
-    if (response2 && response2.length > 50) {
-      return response2;
-    }
+    const response2 = await queryWhoisTcp(domain, server, 4000, formats[1]);
+    if (response2 && response2.length > 50) return response2;
   }
   
   return null;
@@ -2064,7 +2055,7 @@ async function queryWhois(domain: string): Promise<any> {
     // 对于 ccTLD，使用多格式查询
     const tcpResponse = isCctld 
       ? await queryWhoisWithFormats(domain, whoisServer, tld)
-      : await queryWhoisTcp(domain, whoisServer, 15000);
+      : await queryWhoisTcp(domain, whoisServer, 8000);
     
     if (tcpResponse) {
       const parsed = parseWhoisText(tcpResponse, domain);
@@ -2127,7 +2118,7 @@ async function queryWhois(domain: string): Promise<any> {
     const tldServers = gTldServers[tld] || ['whois.verisign-grs.com', 'whois.internic.net'];
     
     for (const server of tldServers) {
-      const tcpResponse = await queryWhoisTcp(domain, server, 15000);
+      const tcpResponse = await queryWhoisTcp(domain, server, 8000);
       if (tcpResponse) {
         // 检查是否有重定向信息
         const referMatch = tcpResponse.match(/Registrar WHOIS Server:\s*(\S+)/i) ||
@@ -2137,7 +2128,7 @@ async function queryWhois(domain: string): Promise<any> {
         if (referMatch && referMatch[1]) {
           const referServer = referMatch[1].trim();
           console.log(`Found referral WHOIS server: ${referServer}`);
-          const referResponse = await queryWhoisTcp(domain, referServer, 15000);
+          const referResponse = await queryWhoisTcp(domain, referServer, 6000);
           if (referResponse) {
             const parsed = parseWhoisText(referResponse, domain);
             if (parsed.registrar || parsed.registrationDate) {
@@ -2539,7 +2530,7 @@ serve(async (req) => {
   }
 
   try {
-    const { domain } = await req.json();
+    const { domain, skipPricing, pricingOnly } = await req.json();
     
     if (!domain) {
       return new Response(
@@ -2558,21 +2549,31 @@ serve(async (req) => {
       );
     }
     
+    // 仅查询价格
+    if (pricingOnly) {
+      const pricing = await queryPricing(normalizedDomain);
+      return new Response(
+        JSON.stringify({ pricing }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     console.log(`Looking up domain: ${normalizedDomain}`);
     const tld = getTld(normalizedDomain);
     const startTime = Date.now();
     
     // 并行查询价格和域名信息
-    const [queryResult, pricingResult] = await Promise.all([
+    const promises: [Promise<any>, Promise<any>] = [
       smartDomainQuery(normalizedDomain, tld),
-      queryPricing(normalizedDomain)
-    ]);
+      skipPricing ? Promise.resolve(null) : queryPricing(normalizedDomain)
+    ];
+    
+    const [queryResult, pricingResult] = await Promise.all(promises);
     
     const elapsed = Date.now() - startTime;
     console.log(`Query completed in ${elapsed}ms`);
     
     if (!queryResult) {
-      // 域名不存在或查询失败
       return new Response(
         JSON.stringify({ 
           error: `域名 ${normalizedDomain} 未注册或无法查询`,
@@ -2584,18 +2585,14 @@ serve(async (req) => {
       );
     }
     
-    const result = {
-      primary: queryResult.data,
-      pricing: pricingResult,
-      isRegistered: true,
-      querySource: queryResult.source,
-      queryTime: elapsed,
-    };
-    
-    console.log(`Domain lookup successful via ${queryResult.source} in ${elapsed}ms`);
-    
     return new Response(
-      JSON.stringify(result),
+      JSON.stringify({
+        primary: queryResult.data,
+        pricing: pricingResult,
+        isRegistered: true,
+        querySource: queryResult.source,
+        queryTime: elapsed,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
     
