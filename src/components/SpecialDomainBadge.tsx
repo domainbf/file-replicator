@@ -3,42 +3,70 @@ interface SpecialDomainBadgeProps {
   position?: 'inline' | 'fixed-right';
 }
 
-// List of special domains that get the shimmering "不讲•李" badge
-const SPECIAL_DOMAINS = [
-  'nic.bn',
-  'nic.rw', 
-  'f.af',
-  'x.rw',
-  'l.ke',
-  'top.vg',
-  'domain.bf',
-  'hello.sn',
+/**
+ * 可维护的配置结构
+ * 后期只要在这里加域名即可
+ */
+const SPECIAL_DOMAIN_CONFIG = [
+  {
+    name: '不讲•李',
+    domains: [
+      'nic.bn',
+      'nic.rw',
+      'f.af',
+      'x.rw',
+      'l.ke',
+      'top.vg',
+      'domain.bf',
+      'hello.sn',
+    ],
+  },
 ];
 
-const SpecialDomainBadge = ({ domain, position = 'inline' }: SpecialDomainBadgeProps) => {
-  const normalizedDomain = domain.toLowerCase().trim();
-  
-  // Check if the domain matches any special domain
-  const isSpecial = SPECIAL_DOMAINS.some(special => 
-    normalizedDomain === special || normalizedDomain.endsWith(`.${special}`)
-  );
 
-  if (!isSpecial) {
-    return null;
-  }
+/**
+ * 查找匹配的 badge
+ */
+function getBadgeForDomain(domain: string) {
+  const normalized = domain.toLowerCase().trim();
 
-  // Horizontal badge with inline text (not vertical)
-  if (position === 'fixed-right') {
-    return (
-      <span className="shimmer-badge absolute -top-1 -right-1 inline-flex flex-row items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold text-white shadow-lg z-10">
-        不讲•李
-      </span>
+  for (const badge of SPECIAL_DOMAIN_CONFIG) {
+    const matched = badge.domains.some(
+      d => normalized === d || normalized.endsWith(`.${d}`)
     );
+
+    if (matched) return badge;
   }
+
+  return null;
+}
+
+
+const SpecialDomainBadge = ({ domain, position = 'inline' }: SpecialDomainBadgeProps) => {
+
+  const badge = getBadgeForDomain(domain);
+
+  if (!badge) return null;
+
+  const baseClass =
+    "inline-flex items-center whitespace-nowrap px-2.5 py-[2px] rounded-md text-[11px] font-semibold text-white shadow-md";
+
+  // 更高级的 shimmer + 渐变
+  const shimmerClass = `
+    bg-gradient-to-r 
+    from-purple-500 via-pink-500 to-orange-400
+    bg-[length:200%_100%]
+    animate-[shimmer_3s_linear_infinite]
+  `;
+
+  const fixedClass =
+    position === 'fixed-right'
+      ? "absolute -top-1 -right-1 z-10"
+      : "";
 
   return (
-    <span className="shimmer-badge inline-flex flex-row items-center whitespace-nowrap px-2 py-0.5 rounded text-xs font-bold text-white shadow-lg">
-      不讲•李
+    <span className={`${baseClass} ${shimmerClass} ${fixedClass}`}>
+      {badge.name}
     </span>
   );
 };
