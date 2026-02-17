@@ -83,6 +83,11 @@ const TopNavBar = ({ isDark, setIsDark, onLogoClick }: TopNavBarProps) => {
                   {user.email}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/user-center')}>
+                  <User className="h-4 w-4 mr-2" />
+                  用户中心
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={signOut} className="text-destructive">
                   <LogOut className="h-4 w-4 mr-2" />
                   {t('app.logout')}
