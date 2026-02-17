@@ -100,7 +100,9 @@ const STATUS_CODE_MAP: Record<string, string> = {
   'registered': '已注册',
   'connect': '已连接',
   'connected': '已连接',
-  
+  'available': '可注册',
+  'notfound': '未注册',
+
   // 法语状态码
   'actif': '正常',
   'inactif': '未激活',
@@ -111,22 +113,32 @@ const STATUS_CODE_MAP: Record<string, string> = {
   'reserve': '已保留',
   'bloqué': '已锁定',
   'bloque': '已锁定',
-  
+
   // 德语状态码
   'aktiv': '正常',
   'gesperrt': '已锁定',
   'abgelaufen': '已过期',
-  
+  'verfügbar': '可注册',
+
   // 西班牙语状态码
   'activo': '正常',
   'inactivo': '未激活',
   'suspendido': '已暂停',
   'expirado': '已过期',
-  
+  'disponible': '可注册',
+
   // 日语状态码
   '有効': '正常',
   '無効': '未激活',
-  
+
+  // 中文直接状态码
+  '正常': '正常',
+  '激活': '激活',
+  '停用': '停用',
+  '暂停': '暂停',
+  '过期': '过期',
+  '锁定': '锁定',
+
   // Hold状态
   'clienthold': '客户端暂停',
   'client hold': '客户端暂停',
@@ -135,14 +147,17 @@ const STATUS_CODE_MAP: Record<string, string> = {
   'hold': '暂停',
   'inactive': '未激活',
   'suspended': '已暂停',
-  
+  'registrarholds': '注册商暂停',
+  'registryhold': '注册局暂停',
+
   // Delete禁止
   'clientdeleteprohibited': '客户端删除禁止',
   'client delete prohibited': '客户端删除禁止',
   'serverdeleteprohibited': '注册局删除禁止',
   'server delete prohibited': '注册局删除禁止',
   'deleteprohibited': '禁止删除',
-  
+  'no deletion': '禁止删除',
+
   // Transfer禁止
   'clienttransferprohibited': '客户端转移禁止',
   'client transfer prohibited': '客户端转移禁止',
@@ -152,40 +167,112 @@ const STATUS_CODE_MAP: Record<string, string> = {
   'registrarlock': '注册商锁定',
   'registrylock': '注册局锁定',
   'locked': '已锁定',
-  
+  'no transfer': '禁止转移',
+  'no ipr action': '禁止IRP操作',
+
   // Renew禁止
   'clientrenewprohibited': '客户端续费禁止',
   'client renew prohibited': '客户端续费禁止',
   'serverrenewprohibited': '注册局续费禁止',
   'server renew prohibited': '注册局续费禁止',
   'renewprohibited': '禁止续费',
-  
+  'no renew': '禁止续费',
+
   // Update禁止
   'clientupdateprohibited': '客户端更新禁止',
   'client update prohibited': '客户端更新禁止',
   'serverupdateprohibited': '注册局更新禁止',
   'server update prohibited': '注册局更新禁止',
   'updateprohibited': '禁止修改',
-  
+  'no update': '禁止修改',
+
   // 续费/过期相关
   'autorenewperiod': '自动续费期',
+  'autorenew': '自动续费',
+  'auto-renew': '自动续费',
   'redemptionperiod': '赎回期',
+  'redemption period': '赎回期',
   'pendingrestore': '待恢复',
+  'pending restore': '待恢复',
   'pendingdelete': '待删除',
+  'pending delete': '待删除',
   'graceperiod': '宽限期',
+  'grace period': '宽限期',
   'addperiod': '注册宽限期',
+  'add period': '注册宽限期',
   'renewperiod': '续费宽限期',
+  'renew period': '续费宽限期',
   'transferperiod': '转移宽限期',
+  'transfer period': '转移宽限期',
   'expired': '已过期',
-  
+  'expire': '已过期',
+  'expiration': '即将过期',
+  'expirationprohibited': '禁止过期',
+  'notrenewed': '未续费',
+  'reserved': '已保留',
+  'redemptionperiodexpired': '赎回期已过期',
+  'redemption period expired': '赎回期已过期',
+
   // 转移相关
   'pendingtransfer': '转移中',
+  'pending transfer': '转移中',
+  'transferprohibitedfrominsufficientauth': '转移权限不足',
+  'pendingtransferack': '转移待确认',
+  'pendingtransferrefuse': '转移被拒绝',
   'pendingverification': '待验证',
+  'pending verification': '待验证',
   'pendingupdate': '修改中',
-  
-  // 隐私保护
+  'pending update': '修改中',
+  'update prohibited': '禁止修改',
+  'transfer paused': '转移已暂停',
+
+  // 隐私保护/WHOIS
   'privacy': '隐私保护',
+  'privacyprotected': '隐私保护',
+  'privacy-protected': '隐私保护',
   'redacted': '信息隐藏',
+  'obscured': '信息隐藏',
+  'whoisprotected': 'WHOIS隐私保护',
+  'whois protected': 'WHOIS隐私保护',
+  'whois-protected': 'WHOIS隐私保护',
+  'proxy': '代理服务',
+  'proxied': '已代理',
+
+  // 额外的gTLD状态码
+  'clientrestore': '客户端恢复',
+  'serverrestore': '服务器恢复',
+  'clientchangeprohibited': '客户端修改禁止',
+  'serverchangeprohibited': '服务器修改禁止',
+  'clientrenewprohibited': '客户端续费禁止',
+  'serverrenewprohibited': '服务器续费禁止',
+  'active': '激活',
+  'inactive': '未激活',
+  'ok': '状态正常',
+
+  // ccTLD特定状态码
+  'activation': '激活中',
+  'removed': '已移除',
+  'blocked': '已阻止',
+  'pending': '待处理',
+  'verified': '已验证',
+  'unverified': '未验证',
+  'disputed': '有争议',
+  'onhold': '暂停中',
+  'quarantine': '隔离中',
+  'restored': '已恢复',
+  'delegated': '已委托',
+  'dnsonly': '仅DNS',
+  'nameserverschanged': '命名服务器已更改',
+  'registrantchanged': '注册人已更改',
+  'adminchanged': '管理员已更改',
+  'techchanged': '技术联系已更改',
+  'renewfailed': '续费失败',
+  'transferfailed': '转移失败',
+  'restorefailed': '恢复失败',
+
+  // 代理/代理商
+  'whoisnotdisplayed': 'WHOIS未显示',
+  'displayedwhois': '显示WHOIS',
 };
 
 // 注册商官网映射 (超级扩展版 - 包含全球大中小注册商)
@@ -1064,20 +1151,59 @@ function getUpdateLabel(status: string[] | null | undefined): string | null {
 
   const lowerStatuses = status.map(s => s.toLowerCase());
 
-  // 全功能高密锁定：delete + transfer + update
-  const hasAllLocks =
-    lowerStatuses.some(s => s.includes('clientdeleteprohibited') || s.includes('client delete prohibited')) &&
-    lowerStatuses.some(s => s.includes('clienttransferprohibited') || s.includes('client transfer prohibited')) &&
-    lowerStatuses.some(s => s.includes('clientupdateprohibited') || s.includes('client update prohibited'));
+  // 检查各种锁定状态
+  const hasDeleteLock = lowerStatuses.some(s => s.includes('deleteprohibited') || s.includes('delete prohibited'));
+  const hasTransferLock = lowerStatuses.some(s => s.includes('transferprohibited') || s.includes('transfer prohibited'));
+  const hasUpdateLock = lowerStatuses.some(s => s.includes('updateprohibited') || s.includes('update prohibited'));
+  const hasRenewLock = lowerStatuses.some(s => s.includes('renewprohibited') || s.includes('renew prohibited'));
 
-  if (hasAllLocks) return '安全锁定';
+  // 检查暂停状态
+  const hasHoldStatus = lowerStatuses.some(s => s.includes('hold') || s.includes('suspended'));
 
-  // 转移锁定：transfer
-  const hasTransferLock = lowerStatuses.some(
-    s => s.includes('transferprohibited') || s.includes('transfer prohibited')
-  );
+  // 检查是否在宽限期或赎回期
+  const inGracePeriod = lowerStatuses.some(s => s.includes('graceperiod') || s.includes('grace period'));
+  const inRedemptionPeriod = lowerStatuses.some(s => s.includes('redemptionperiod') || s.includes('redemption period'));
 
-  if (hasTransferLock) return '转移锁定';
+  // 检查是否在转移中或待删除
+  const pendingTransfer = lowerStatuses.some(s => s.includes('pendingtransfer') || s.includes('pending transfer'));
+  const pendingDelete = lowerStatuses.some(s => s.includes('pendingdelete') || s.includes('pending delete'));
+  const pendingRestore = lowerStatuses.some(s => s.includes('pendingrestore') || s.includes('pending restore'));
+
+  // 优先级顺序判断，返回最重要的标签
+
+  // 1. 最危险状态：待删除、赎回期
+  if (pendingDelete) return '待删除';
+  if (inRedemptionPeriod) return '赎回期';
+
+  // 2. 待恢复状态
+  if (pendingRestore) return '待恢复';
+
+  // 3. 暂停状态
+  if (hasHoldStatus) return '已暂停';
+
+  // 4. 转移中状态
+  if (pendingTransfer) return '转移中';
+
+  // 5. 全功能高密锁定：所有三种禁止
+  if (hasDeleteLock && hasTransferLock && hasUpdateLock) return '安全锁定';
+
+  // 6. 防转移+防续费（常见组合）
+  if (hasTransferLock && hasRenewLock) return '防转移&续费';
+
+  // 7. 防转移
+  if (hasTransferLock) return '防转移';
+
+  // 8. 防续费
+  if (hasRenewLock) return '防续费';
+
+  // 9. 防删除
+  if (hasDeleteLock) return '防删除';
+
+  // 10. 防修改
+  if (hasUpdateLock) return '防修改';
+
+  // 11. 宽限期
+  if (inGracePeriod) return '宽限期';
 
   return null;
 }
