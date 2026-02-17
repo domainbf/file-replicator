@@ -1,289 +1,238 @@
-import { useState, useRef, useEffect } from 'react';
-import punycode from 'punycode/';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
-import { useLanguage } from '@/hooks/useLanguage';
-import { useTldSuggestions } from '@/hooks/useTldSuggestions';
-import { cn } from '@/lib/utils';
+import { useState, useEffect, useRef } from "react";
 
-interface Props {
-  domain: string;
-  setDomain: (v: string) => void;
-  onSearch: () => void;
-  loading: boolean;
-}
+/* ===============================
+   安全域名清洗（不会拼接）
+================================ */
+function clean(v: string) {
+  if (!v) return "";
 
-/* =========================
-   ⭐ 超级域名提取器（核心）
-========================= */
-function extractDomain(raw: string) {
-  if (!raw) return '';
-
-  let v = raw
+  return v
     .toLowerCase()
     .trim()
-
-    // 删除协议
-    .replace(/https?:\/\//g, '')
-    .replace(/ftp:\/\//g, '')
-
-    // 删除 www
-    .replace(/^www\./, '')
-
-    // 中文标点
-    .replace(/[，。]/g, '.')
-
-    // 空格转点
-    .replace(/\s+/g, '.')
-
-    // 删除路径
-    .split('/')[0]
-
-    // 删除邮箱前缀
-    .split('@').pop() || '';
-
-  // 只留合法字符
-  v = v.replace(/[^a-z0-9.-]/g, '');
-
-  // 合并多个 .
-  v = v.replace(/\.{2,}/g, '.');
-
-  // 防极端段数
-  const parts = v.split('.');
-  if (parts.length > 5) {
-    v = parts.slice(-4).join('.');
-  }
-
-  // ⭐ 中文域名 → punycode
-  try {
-    if (/[^ -~]/.test(v)) {
-      v = punycode.toASCII(v);
-    }
-  } catch {}
-
-  return v;
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .split("/")[0]
+    .split("@").pop() || ""
+    .replace(/[^a-z0-9.-]/g, "")
+    .replace(/\.{2,}/g, ".");
 }
 
-/* =========================
-   自动补全 .com
-========================= */
-function autoTld(v: string) {
-  if (!v) return v;
-  if (v.includes('.')) return v;
-  return v + '.com';
+/* ===============================
+   静态后缀列表（安全）
+================================ */
+const TLDS = [
+  ".com",
+  ".ai",
+  ".io",
+  ".co",
+  ".app",
+  ".dev",
+  ".net",
+];
+
+/* ===============================
+   生成建议（纯函数）
+   ⚠️ 绝不修改 domain
+================================ */
+function buildSuggestions(input: string) {
+
+  if (!input) return [];
+
+  // 已经完整域名 → 不生成
+  if (input.includes(".")) return [];
+
+  return TLDS.map(t => input + t);
 }
 
-export default function DomainSearch({
-  domain,
-  setDomain,
-  onSearch,
-  loading,
-}: Props) {
+/* ===============================
+   主组件
+================================ */
+export default function DomainSearch() {
 
-  const { t } = useLanguage();
-  const { getSuggestions } = useTldSuggestions();
+  const [value, setValue] = useState("");
 
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [show, setShow] = useState(false);
   const [index, setIndex] = useState(-1);
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const boxRef = useRef<HTMLDivElement>(null);
 
-  /* =========================
-     ⭐ iOS Safari终极防补全
-  ========================= */
-  useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-
-    el.setAttribute('autocomplete', 'new-password');
-    el.setAttribute('autocorrect', 'off');
-    el.setAttribute('autocapitalize', 'off');
-    el.setAttribute('spellcheck', 'false');
-  }, []);
-
-  /* =========================
-     suggestions 防抖
-  ========================= */
+  /* ===============================
+     只根据 value 生成建议
+     ⚠️ 不允许 setValue
+  =================================*/
   useEffect(() => {
 
     const timer = setTimeout(() => {
 
-      const cleaned = extractDomain(domain);
+      const cleaned = clean(value);
 
       if (!cleaned) {
         setSuggestions([]);
-        setShow(false);
         return;
       }
 
-      setSuggestions(getSuggestions(cleaned));
-      setIndex(-1);
-      setShow(true);
+      setSuggestions(buildSuggestions(cleaned));
 
     }, 120);
 
     return () => clearTimeout(timer);
 
-  }, [domain, getSuggestions]);
+  }, [value]);
 
-  /* =========================
-     点击外部关闭
-  ========================= */
-  useEffect(() => {
-
-    const fn = (e: MouseEvent) => {
-      if (
-        !inputRef.current?.contains(e.target as Node) &&
-        !boxRef.current?.contains(e.target as Node)
-      ) {
-        setShow(false);
-      }
-    };
-
-    document.addEventListener('mousedown', fn);
-    return () => document.removeEventListener('mousedown', fn);
-
-  }, []);
-
-  /* =========================
-     输入变化（核心）
-  ========================= */
+  /* ===============================
+     用户输入（唯一能改 value 的地方）
+  =================================*/
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const cleaned = extractDomain(e.target.value);
-    setDomain(cleaned);
+
+    const raw = e.target.value;
+
+    // ⭐ 防字符串爆炸（关键）
+    if (raw.length > value.length + 6) {
+      console.warn("blocked abnormal input", raw);
+      return;
+    }
+
+    setValue(clean(raw));
     setShow(true);
   };
 
-  /* =========================
-     ⭐ 粘贴清洗（Google级关键）
-  ========================= */
+  /* ===============================
+     粘贴（Google级必须）
+  =================================*/
   const onPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
-    const text = e.clipboardData.getData('text');
-    setDomain(extractDomain(text));
+    const text = e.clipboardData.getData("text");
+    setValue(clean(text));
     setShow(true);
   };
 
-  /* =========================
+  /* ===============================
      搜索
-  ========================= */
-  const handleSearch = () => {
+  =================================*/
+  const search = () => {
 
-    let cleaned = extractDomain(domain);
-    if (!cleaned) return;
+    if (!value) return;
 
-    cleaned = autoTld(cleaned);
+    let d = value;
 
-    setDomain(cleaned);
+    if (!d.includes(".")) {
+      d += ".com";
+    }
+
+    console.log("SEARCH:", d);
+
     setShow(false);
-
-    setTimeout(onSearch, 0);
   };
 
-  /* =========================
-     键盘控制
-  ========================= */
+  /* ===============================
+     键盘
+  =================================*/
   const onKeyDown = (e: React.KeyboardEvent) => {
 
-    if (loading) return;
-
-    if (e.key === 'ArrowDown') {
+    if (e.key === "ArrowDown") {
       e.preventDefault();
       setShow(true);
       setIndex(i => Math.min(i + 1, suggestions.length - 1));
     }
 
-    else if (e.key === 'ArrowUp') {
+    else if (e.key === "ArrowUp") {
       e.preventDefault();
       setIndex(i => Math.max(i - 1, -1));
     }
 
-    else if (e.key === 'Enter') {
+    else if (e.key === "Enter") {
       e.preventDefault();
 
       if (show && index >= 0) {
-        setDomain(suggestions[index]);
+        setValue(suggestions[index]);   // 只有用户按键才允许写
         setShow(false);
       } else {
-        handleSearch();
+        search();
       }
     }
 
-    else if (e.key === 'Escape') {
+    else if (e.key === "Escape") {
       setShow(false);
     }
   };
 
   const choose = (s: string) => {
-    setDomain(s);
+    setValue(s);      // 只有点击才写
     setShow(false);
     inputRef.current?.focus();
   };
 
   return (
-    <div className="relative flex gap-2">
+    <div style={{ position: "relative", display: "flex", gap: 8 }}>
 
-      <div className="relative flex-1">
+      <div style={{ flex: 1, position: "relative" }}>
 
-        <Input
+        <input
           ref={inputRef}
-          value={domain}
+          value={value}
 
-          /* ⭐ 必须随机 name（Safari关键） */
-          name="domain-input-83921"
-
-          inputMode="url"
+          /* ⭐ Safari终极防补全 */
           autoComplete="new-password"
           autoCorrect="off"
           autoCapitalize="none"
           spellCheck={false}
+          name="domain-input-39281"
 
-          placeholder={t('search.placeholder')}
+          placeholder="Search domain"
 
           onChange={onChange}
           onPaste={onPaste}
           onKeyDown={onKeyDown}
 
           onFocus={() => setShow(true)}
-          disabled={loading}
+
+          style={{
+            width: "100%",
+            padding: 12,
+            fontSize: 18
+          }}
         />
 
         {show && suggestions.length > 0 && (
-          <div
-            ref={boxRef}
-            className="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-xl shadow-xl z-50 overflow-hidden max-h-72 overflow-y-auto"
-          >
-
-            {suggestions.slice(0, 8).map((s, i) => (
+          <div style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            background: "#fff",
+            border: "1px solid #ddd",
+            borderRadius: 10,
+            marginTop: 4,
+            overflow: "hidden"
+          }}>
+            {suggestions.slice(0,8).map((s,i)=>(
               <div
                 key={s}
-                onClick={() => choose(s)}
-                className={cn(
-                  'px-4 py-2.5 text-sm cursor-pointer hover:bg-accent',
-                  i === index && 'bg-accent'
-                )}
+                onClick={()=>choose(s)}
+                style={{
+                  padding:10,
+                  cursor:"pointer",
+                  background: i===index ? "#eee":"white"
+                }}
               >
                 {s}
               </div>
             ))}
-
           </div>
         )}
 
       </div>
 
-      <Button
-        onClick={handleSearch}
-        disabled={loading}
-        className="min-w-[80px]"
+      <button
+        onClick={search}
+        style={{
+          padding:"0 16px",
+          fontSize:16
+        }}
       >
-        {loading
-          ? <Loader2 className="h-4 w-4 animate-spin"/>
-          : t('search.button')}
-      </Button>
+        Search
+      </button>
 
     </div>
   );
