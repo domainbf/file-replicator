@@ -16,67 +16,53 @@ interface DomainSearchProps {
 const DomainSearch = ({ domain, setDomain, onSearch, loading }: DomainSearchProps) => {
   const { t } = useLanguage();
   const { allTlds, getSuggestions } = useTldSuggestions();
-
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  const [isComposing, setIsComposing] = useState(false);
-  const [rawInput, setRawInput] = useState(domain);
-
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
-  const cleanDomain = (value: string) =>
-    value
-      .toLowerCase()
-      .trim()
-      .replace(/[，。]/g, '.')
-      .replace(/[, ]+/g, '.')
-      .replace(/\.{2,}/g, '.')
-      .replace(/[^a-z0-9.-]/g, '');
-
+  // Update suggestions when domain changes
   useEffect(() => {
-    if (isComposing || !domain.trim()) {
-      setSuggestions([]);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setSuggestions(getSuggestions(domain));
+    if (domain.trim()) {
+      const newSuggestions = getSuggestions(domain);
+      setSuggestions(newSuggestions);
       setSelectedIndex(-1);
-    }, 120);
+    } else {
+      setSuggestions([]);
+    }
+  }, [domain, getSuggestions]);
 
-    return () => clearTimeout(timer);
-  }, [domain, getSuggestions, isComposing]);
-
+  // Close suggestions on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
-        !inputRef.current?.contains(e.target as Node) &&
-        !suggestionsRef.current?.contains(e.target as Node)
+        inputRef.current && 
+        !inputRef.current.contains(e.target as Node) &&
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(e.target as Node)
       ) {
         setShowSuggestions(false);
       }
     };
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleSearch = () => {
-    if (!domain.trim() && !rawInput.trim()) return;
-
-    let final = cleanDomain(domain || rawInput);
-    setDomain(final);
-    setRawInput(final);
-
-    const completed = autoCompleteDomain(final, allTlds);
-    if (completed !== final) {
-      setDomain(completed);
-      setRawInput(completed);
+    if (!domain.trim()) return;
+    
+    // Auto-complete with .com if no valid TLD
+    const completedDomain = autoCompleteDomain(domain, allTlds);
+    if (completedDomain !== domain) {
+      setDomain(completedDomain);
     }
-
+    
     setShowSuggestions(false);
-    setTimeout(onSearch, 0);
+    
+    // Trigger search with completed domain
+    setTimeout(() => onSearch(), 0);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -84,55 +70,44 @@ const DomainSearch = ({ domain, setDomain, onSearch, loading }: DomainSearchProp
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setShowSuggestions(true);
-      setSelectedIndex((prev) => Math.min(prev + 1, suggestions.length - 1));
+      if (showSuggestions && suggestions.length > 0) {
+        setSelectedIndex(prev => 
+          prev < suggestions.length - 1 ? prev + 1 : prev
+        );
+      } else if (suggestions.length > 0) {
+        setShowSuggestions(true);
+        setSelectedIndex(0);
+      }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setSelectedIndex((prev) => Math.max(prev - 1, -1));
+      if (showSuggestions && selectedIndex > 0) {
+        setSelectedIndex(prev => prev - 1);
+      }
+    } else if (e.key === 'Tab' && showSuggestions && suggestions.length > 0) {
+      e.preventDefault();
+      const index = selectedIndex >= 0 ? selectedIndex : 0;
+      setDomain(suggestions[index]);
+      setShowSuggestions(false);
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (showSuggestions && selectedIndex >= 0) {
-        const chosen = suggestions[selectedIndex];
-        setDomain(chosen);
-        setRawInput(chosen);
+        setDomain(suggestions[selectedIndex]);
         setShowSuggestions(false);
       } else {
         handleSearch();
       }
     } else if (e.key === 'Escape') {
       setShowSuggestions(false);
-    } else if (e.key === 'Tab' && showSuggestions && suggestions.length > 0) {
-      e.preventDefault();
-      const idx = selectedIndex >= 0 ? selectedIndex : 0;
-      const chosen = suggestions[idx];
-      setDomain(chosen);
-      setRawInput(chosen);
-      setShowSuggestions(false);
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setRawInput(value);
+    setDomain(e.target.value);
     setShowSuggestions(true);
-
-    if (!isComposing) {
-      setDomain(cleanDomain(value));
-    }
-  };
-
-  const handleCompositionStart = () => setIsComposing(true);
-
-  const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
-    setIsComposing(false);
-    const cleaned = cleanDomain(e.currentTarget.value);
-    setDomain(cleaned);
-    setRawInput(cleaned);
   };
 
   const handleSuggestionClick = (suggestion: string) => {
     setDomain(suggestion);
-    setRawInput(suggestion);
     setShowSuggestions(false);
     inputRef.current?.focus();
   };
@@ -143,19 +118,22 @@ const DomainSearch = ({ domain, setDomain, onSearch, loading }: DomainSearchProp
     }
   };
 
+  // Highlight matching parts in suggestion
   const highlightMatch = (suggestion: string) => {
     const input = domain.toLowerCase().trim();
     const suggestionLower = suggestion.toLowerCase();
-
+    
     if (input.includes('.')) {
+      // Highlight the TLD part being typed
       const parts = input.split('.');
+      const prefix = parts.slice(0, -1).join('.');
       const tldPart = parts[parts.length - 1];
-
+      
       const dotIndex = suggestion.indexOf('.');
       if (dotIndex !== -1) {
         const suggestionTld = suggestion.slice(dotIndex + 1);
         const matchLength = tldPart.length;
-
+        
         return (
           <>
             <span className="text-muted-foreground">{suggestion.slice(0, dotIndex + 1)}</span>
@@ -165,7 +143,8 @@ const DomainSearch = ({ domain, setDomain, onSearch, loading }: DomainSearchProp
         );
       }
     }
-
+    
+    // Highlight the prefix
     const matchIndex = suggestionLower.indexOf(input);
     if (matchIndex !== -1) {
       return (
@@ -175,7 +154,7 @@ const DomainSearch = ({ domain, setDomain, onSearch, loading }: DomainSearchProp
         </>
       );
     }
-
+    
     return <span className="text-muted-foreground">{suggestion}</span>;
   };
 
@@ -187,17 +166,16 @@ const DomainSearch = ({ domain, setDomain, onSearch, loading }: DomainSearchProp
           id="domain"
           type="text"
           placeholder={t('search.placeholder')}
-          value={isComposing ? rawInput : domain}
+          value={domain}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onFocus={handleInputFocus}
-          onCompositionStart={handleCompositionStart}
-          onCompositionEnd={handleCompositionEnd}
           className="w-full"
           disabled={loading}
           autoComplete="off"
         />
-
+        
+        {/* Suggestions dropdown */}
         {showSuggestions && suggestions.length > 0 && (
           <div
             ref={suggestionsRef}
@@ -222,7 +200,7 @@ const DomainSearch = ({ domain, setDomain, onSearch, loading }: DomainSearchProp
           </div>
         )}
       </div>
-
+      
       <Button onClick={handleSearch} disabled={loading} className="min-w-[72px]">
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t('search.button')}
       </Button>
