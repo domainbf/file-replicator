@@ -1,18 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
-import { Clock, Trash2, CheckCircle2, XCircle, AlertCircle, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Clock, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import DomainFavicon from './DomainFavicon';
-
-// 定义明确的状态类型
-type QueryStatus = 'registered' | 'available' | 'failed';
 
 interface RecentQuery {
   domain: string;
   timestamp: number;
-  status: QueryStatus;
+  isRegistered?: boolean;
 }
 
 interface RecentQueriesProps {
@@ -20,147 +15,161 @@ interface RecentQueriesProps {
   refreshTrigger?: number;
 }
 
+const MAX_RECENT_QUERIES = 10;
 const STORAGE_KEY = 'recent_domain_queries';
 
-/** 智能保存逻辑：确保状态准确 */
-export const addRecentQuery = (domain: string, status: QueryStatus = 'failed') => {
+/** 添加查询记录 */
+export const addRecentQuery = (domain: string, isRegistered: boolean = true) => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     let queries: RecentQuery[] = stored ? JSON.parse(stored) : [];
 
-    // 去重并置顶最新记录
     queries = queries.filter(q => q.domain.toLowerCase() !== domain.toLowerCase());
+
     queries.unshift({
       domain: domain.toLowerCase(),
       timestamp: Date.now(),
-      status,
+      isRegistered,
     });
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(queries.slice(0, 30)));
-    window.dispatchEvent(new Event('storage'));
+    queries = queries.slice(0, MAX_RECENT_QUERIES);
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(queries));
+    window.dispatchEvent(new CustomEvent('recent-queries-updated'));
   } catch (e) {
-    console.error('LocalStorage Save Error', e);
+    console.error('Failed to save recent query:', e);
+  }
+};
+
+/** 删除单条记录 */
+export const removeRecentQuery = (domain: string) => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return;
+
+    let queries: RecentQuery[] = JSON.parse(stored);
+    queries = queries.filter(q => q.domain.toLowerCase() !== domain.toLowerCase());
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(queries));
+    window.dispatchEvent(new CustomEvent('recent-queries-updated'));
+  } catch (e) {
+    console.error('Failed to remove recent query:', e);
+  }
+};
+
+/** 清空所有记录 */
+export const clearRecentQueries = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    window.dispatchEvent(new CustomEvent('recent-queries-updated'));
+  } catch (e) {
+    console.error('Failed to clear recent queries:', e);
   }
 };
 
 const RecentQueries = ({ onSelectDomain, refreshTrigger }: RecentQueriesProps) => {
   const [queries, setQueries] = useState<RecentQuery[]>([]);
   const { language } = useLanguage();
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   const loadQueries = () => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      setQueries(stored ? JSON.parse(stored) : []);
-    } catch {
-      setQueries([]);
+      if (stored) setQueries(JSON.parse(stored));
+      else setQueries([]);
+    } catch (e) {
+      console.error('Failed to load recent queries:', e);
     }
   };
 
   useEffect(() => {
     loadQueries();
-    window.addEventListener('storage', loadQueries);
-    return () => window.removeEventListener('storage', loadQueries);
+    const handleUpdate = () => loadQueries();
+    window.addEventListener('recent-queries-updated', handleUpdate);
+    return () => window.removeEventListener('recent-queries-updated', handleUpdate);
   }, [refreshTrigger]);
 
-  const handleDelete = (domain: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const updated = queries.filter(q => q.domain !== domain);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setQueries(updated);
+  /** 友好时间显示 */
+  const formatTimeAgo = (timestamp: number) => {
+    const diff = Math.floor((Date.now() - timestamp) / 1000);
+    if (diff < 30) return language === 'zh' ? '刚刚' : 'Just now';
+    if (diff < 60) return language === 'zh' ? `${diff}秒前` : `${diff}s ago`;
+    const mins = Math.floor(diff / 60);
+    if (mins < 60) return language === 'zh' ? `${mins}分钟前` : `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return language === 'zh' ? `${hours}小时前` : `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return language === 'zh' ? `${days}天前` : `${days}d ago`;
   };
 
-  const handleClearAll = () => {
-    if (confirm(language === 'zh' ? '确定清空所有查询历史？' : 'Clear all search history?')) {
-      localStorage.removeItem(STORAGE_KEY);
-      setQueries([]);
-    }
-  };
+  if (!queries.length) return null;
 
-  if (queries.length === 0) return null;
+  const displayQueries = queries.slice(0, 6);
 
   return (
-    <div className="w-full space-y-3 py-4 animate-in fade-in slide-in-from-bottom-2">
-      {/* Header */}
-      <div className="flex items-center justify-between px-1">
+    <div className="space-y-3">
+
+      {/* 标题 + 清空按钮 */}
+      <div className="flex items-center justify-between text-sm font-medium text-muted-foreground">
         <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-bold tracking-tight">
-            {language === 'zh' ? '最近查询' : 'Recent'} 
-            <span className="ml-2 text-xs font-normal text-muted-foreground">{queries.length}</span>
-          </h3>
+          <Clock className="h-4 w-4" />
+          <span>{language === 'zh' ? '最近查询' : 'Recent Queries'}</span>
         </div>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={handleClearAll}
-          className="h-7 text-[11px] text-muted-foreground hover:text-destructive"
+        <button
+          className="flex items-center gap-1 text-[10px] text-destructive hover:underline"
+          onClick={clearRecentQueries}
         >
-          {language === 'zh' ? '清空全部' : 'Clear All'}
-        </Button>
+          <Trash2 className="h-3 w-3" />
+          {language === 'zh' ? '清空' : 'Clear All'}
+        </button>
       </div>
 
-      {/* 响应式容器：手机端横滑，桌面端网格 */}
-      <div 
-        ref={scrollRef}
-        className={cn(
-          "flex overflow-x-auto pb-2 gap-3 snap-x no-scrollbar", // 手机端
-          "md:grid md:grid-cols-2 lg:grid-cols-3 md:overflow-visible md:pb-0" // 桌面端
-        )}
-      >
-        {queries.map((query) => (
-          <div
-            key={`${query.domain}-${query.timestamp}`}
+      {/* 网格 */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {displayQueries.map((query, index) => (
+          <button
+            key={`${query.domain}-${index}`}
             onClick={() => onSelectDomain(query.domain)}
-            className={cn(
-              "relative flex-shrink-0 w-[240px] md:w-auto snap-start group",
-              "flex items-center gap-3 p-3 rounded-xl border bg-card/50 backdrop-blur-sm",
-              "hover:border-primary/40 hover:bg-accent/5 transition-all cursor-pointer shadow-sm"
-            )}
+            className="relative flex items-start gap-2 p-3 rounded-xl border bg-card hover:bg-muted/40 active:scale-[0.98] transition text-left"
           >
-            {/* Favicon Area */}
-            <div className="shrink-0 w-10 h-10 rounded-lg bg-background flex items-center justify-center border shadow-inner">
-              <DomainFavicon domain={query.domain} size="sm" />
-            </div>
+            <DomainFavicon domain={query.domain} size="sm" />
 
-            {/* Info Area */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-sm font-bold truncate tracking-tight">{query.domain}</span>
-                <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
-              </div>
-              
-              <div className="flex items-center gap-2">
-                {/* 状态徽章：严格区分 */}
-                {query.status === 'available' && (
-                  <Badge variant="secondary" className="bg-green-500/10 text-green-600 border-green-500/20 text-[10px] h-4 px-1 px-1.5 font-medium">
-                    <CheckCircle2 className="w-2.5 h-2.5 mr-1" />
-                    {language === 'zh' ? '未注册' : 'Available'}
-                  </Badge>
-                )}
-                {query.status === 'registered' && (
-                  <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[10px] h-4 px-1.5 font-medium">
-                    <XCircle className="w-2.5 h-2.5 mr-1" />
-                    {language === 'zh' ? '已注册' : 'Registered'}
-                  </Badge>
-                )}
-                {query.status === 'failed' && (
-                  <Badge variant="secondary" className="bg-destructive/10 text-destructive border-destructive/20 text-[10px] h-4 px-1.5 font-medium">
-                    <AlertCircle className="w-2.5 h-2.5 mr-1" />
-                    {language === 'zh' ? '查询失败' : 'Failed'}
-                  </Badge>
-                )}
+            <div className="flex-1 min-w-0 pr-8">
+              <div className="text-xs font-semibold truncate">{query.domain}</div>
+              <div className="text-[10px] text-muted-foreground mt-1">
+                {formatTimeAgo(query.timestamp)}
               </div>
             </div>
 
-            {/* Delete Button */}
-            <button
-              onClick={(e) => handleDelete(query.domain, e)}
-              className="absolute -top-1.5 -right-1.5 p-1.5 rounded-full bg-background border shadow-sm opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 transition-opacity hover:bg-destructive hover:text-white"
+            {/* 状态徽章 */}
+            <Badge
+              variant="outline"
+              className={`
+                absolute bottom-1.5 right-1.5
+                text-[9px] h-4 px-1
+                pointer-events-none
+                ${
+                  query.isRegistered !== false
+                    ? 'text-primary border-primary/30'
+                    : 'text-success border-success/30'
+                }
+              `}
             >
-              <Trash2 className="h-3 w-3" />
+              {query.isRegistered !== false
+                ? (language === 'zh' ? '已注册' : 'Registered')
+                : (language === 'zh' ? '未注册' : 'Available')}
+            </Badge>
+
+            {/* 删除单条 */}
+            <button
+              className="absolute top-1.5 right-1.5 text-muted-foreground text-[10px] hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                removeRecentQuery(query.domain);
+              }}
+            >
+              ×
             </button>
-          </div>
+          </button>
         ))}
       </div>
     </div>
