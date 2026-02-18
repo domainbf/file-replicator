@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, Trash2 } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Badge } from '@/components/ui/badge';
 import DomainFavicon from './DomainFavicon';
@@ -18,52 +18,31 @@ interface RecentQueriesProps {
 const MAX_RECENT_QUERIES = 10;
 const STORAGE_KEY = 'recent_domain_queries';
 
-/** 添加查询记录 */
+// Helper to add a query to recent history
 export const addRecentQuery = (domain: string, isRegistered: boolean = true) => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     let queries: RecentQuery[] = stored ? JSON.parse(stored) : [];
-
+    
+    // Remove existing entry for same domain
     queries = queries.filter(q => q.domain.toLowerCase() !== domain.toLowerCase());
-
+    
+    // Add to front
     queries.unshift({
       domain: domain.toLowerCase(),
       timestamp: Date.now(),
       isRegistered,
     });
-
+    
+    // Limit size
     queries = queries.slice(0, MAX_RECENT_QUERIES);
-
+    
     localStorage.setItem(STORAGE_KEY, JSON.stringify(queries));
+    
+    // Dispatch event for listeners
     window.dispatchEvent(new CustomEvent('recent-queries-updated'));
   } catch (e) {
     console.error('Failed to save recent query:', e);
-  }
-};
-
-/** 删除单条记录 */
-export const removeRecentQuery = (domain: string) => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return;
-
-    let queries: RecentQuery[] = JSON.parse(stored);
-    queries = queries.filter(q => q.domain.toLowerCase() !== domain.toLowerCase());
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(queries));
-    window.dispatchEvent(new CustomEvent('recent-queries-updated'));
-  } catch (e) {
-    console.error('Failed to remove recent query:', e);
-  }
-};
-
-/** 清空所有记录 */
-export const clearRecentQueries = () => {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-    window.dispatchEvent(new CustomEvent('recent-queries-updated'));
-  } catch (e) {
-    console.error('Failed to clear recent queries:', e);
   }
 };
 
@@ -74,8 +53,9 @@ const RecentQueries = ({ onSelectDomain, refreshTrigger }: RecentQueriesProps) =
   const loadQueries = () => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setQueries(JSON.parse(stored));
-      else setQueries([]);
+      if (stored) {
+        setQueries(JSON.parse(stored));
+      }
     } catch (e) {
       console.error('Failed to load recent queries:', e);
     }
@@ -83,95 +63,91 @@ const RecentQueries = ({ onSelectDomain, refreshTrigger }: RecentQueriesProps) =
 
   useEffect(() => {
     loadQueries();
+    
+    // Listen for updates
     const handleUpdate = () => loadQueries();
     window.addEventListener('recent-queries-updated', handleUpdate);
-    return () => window.removeEventListener('recent-queries-updated', handleUpdate);
+    
+    return () => {
+      window.removeEventListener('recent-queries-updated', handleUpdate);
+    };
   }, [refreshTrigger]);
 
-  /** 友好时间显示 */
-  const formatTimeAgo = (timestamp: number) => {
-    const diff = Math.floor((Date.now() - timestamp) / 1000);
-    if (diff < 30) return language === 'zh' ? '刚刚' : 'Just now';
-    if (diff < 60) return language === 'zh' ? `${diff}秒前` : `${diff}s ago`;
-    const mins = Math.floor(diff / 60);
-    if (mins < 60) return language === 'zh' ? `${mins}分钟前` : `${mins}m ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return language === 'zh' ? `${hours}小时前` : `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return language === 'zh' ? `${days}天前` : `${days}d ago`;
+  const formatTime = (timestamp: number) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    
+    if (isToday) {
+      return date.toLocaleTimeString(language === 'zh' ? 'zh-CN' : 'en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    }
+    
+    return date.toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
-  if (!queries.length) return null;
+  if (queries.length === 0) {
+    return null;
+  }
 
   const displayQueries = queries.slice(0, 6);
+  const remainingCount = queries.length - 6;
 
   return (
     <div className="space-y-3">
-
-      {/* 标题 + 清空按钮 */}
-      <div className="flex items-center justify-between text-sm font-medium text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4" />
-          <span>{language === 'zh' ? '最近查询' : 'Recent Queries'}</span>
-        </div>
-        <button
-          className="flex items-center gap-1 text-[10px] text-destructive hover:underline"
-          onClick={clearRecentQueries}
-        >
-          <Trash2 className="h-3 w-3" />
-          {language === 'zh' ? '清空' : 'Clear All'}
-        </button>
+      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+        <Clock className="h-4 w-4" />
+        <span>{language === 'zh' ? '最近查询' : 'Recent Queries'}</span>
       </div>
-
-      {/* 网格 */}
+      
+      {/* Responsive grid: 2-3 columns based on screen width */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {displayQueries.map((query, index) => (
           <button
             key={`${query.domain}-${index}`}
             onClick={() => onSelectDomain(query.domain)}
-            className="relative flex items-start gap-2 p-3 rounded-xl border bg-card hover:bg-muted/40 active:scale-[0.98] transition text-left"
+            className="flex items-center gap-2 p-2.5 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left group"
           >
             <DomainFavicon domain={query.domain} size="sm" />
-
-            <div className="flex-1 min-w-0 pr-8">
-              <div className="text-xs font-semibold truncate">{query.domain}</div>
-              <div className="text-[10px] text-muted-foreground mt-1">
-                {formatTimeAgo(query.timestamp)}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-xs truncate">
+                  {query.domain}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[10px] text-muted-foreground">
+                  {formatTime(query.timestamp)}
+                </span>
+                <Badge 
+                  variant="outline" 
+                  className={`text-[9px] h-4 px-1 ${
+                    query.isRegistered !== false 
+                      ? 'text-primary border-primary/30' 
+                      : 'text-success border-success/30'
+                  }`}
+                >
+                  {query.isRegistered !== false 
+                    ? (language === 'zh' ? '已注册' : 'Registered')
+                    : (language === 'zh' ? '未注册' : 'Available')
+                  }
+                </Badge>
               </div>
             </div>
-
-            {/* 状态徽章 */}
-            <Badge
-              variant="outline"
-              className={`
-                absolute bottom-1.5 right-1.5
-                text-[9px] h-4 px-1
-                pointer-events-none
-                ${
-                  query.isRegistered !== false
-                    ? 'text-primary border-primary/30'
-                    : 'text-success border-success/30'
-                }
-              `}
-            >
-              {query.isRegistered !== false
-                ? (language === 'zh' ? '已注册' : 'Registered')
-                : (language === 'zh' ? '未注册' : 'Available')}
-            </Badge>
-
-            {/* 删除单条 */}
-            <button
-              className="absolute top-1.5 right-1.5 text-muted-foreground text-[10px] hover:text-destructive"
-              onClick={(e) => {
-                e.stopPropagation();
-                removeRecentQuery(query.domain);
-              }}
-            >
-              ×
-            </button>
           </button>
         ))}
       </div>
+      
+      {remainingCount > 0 && (
+        <p className="text-xs text-muted-foreground text-center">
+          {language === 'zh' ? `还有 ${remainingCount} 条记录` : `${remainingCount} more`}
+        </p>
+      )}
     </div>
   );
 };
